@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import print_function
 import argparse
 import os
 import sys
@@ -21,9 +21,9 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     all_NERs = None
     if with_POS: all_POSs = set()
     if with_NER: all_NERs = set()
-    infile = open(train_path, 'rt',encoding='utf-8')
+    infile = open(train_path, 'rt')
     for line in infile:
-        line = line.strip()
+        line = line.decode('utf-8').strip()
         if line.startswith('-'): continue
         items = re.split("\t", line)
         label = items[0]
@@ -47,11 +47,11 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     return (all_words, all_chars, all_labels, all_POSs, all_NERs)
 
 def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',char_vocab=None, POS_vocab=None, NER_vocab=None):
-    if outpath is not None: outfile = open(outpath, 'wt',encoding='utf-8')
+    if outpath is not None: outfile = open(outpath, 'wt')
     total_tags = 0.0
     correct_tags = 0.0
     dataStream.reset()
-    for batch_index in range(dataStream.get_num_batch()):
+    for batch_index in xrange(dataStream.get_num_batch()):
         cur_dev_batch = dataStream.get_batch(batch_index)
         (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
@@ -89,13 +89,12 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
         if outpath is not None:
             if mode =='prediction':
                 predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
-                for i in range(len(label_batch)):
+                for i in xrange(len(label_batch)):
                     outline = label_batch[i] + "\t" + label_vocab.getWord(predictions[i]) + "\t" + sent1_batch[i] + "\t" + sent2_batch[i] + "\n"
-                    # outfile.write(outline.encode('utf-8'))
-                    outfile.write(outline)
+                    outfile.write(outline.encode('utf-8'))
             else:
                 probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
-                for i in range(len(label_batch)):
+                for i in xrange(len(label_batch)):
                     outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
 
     if outpath is not None: outfile.close()
@@ -105,7 +104,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
 def output_probs(probs, label_vocab):
     out_string = ""
-    for i in range(probs.size):
+    for i in xrange(probs.size):
         out_string += " {}:{}".format(label_vocab.getWord(i), probs[i])
     return out_string.strip()
 
@@ -251,7 +250,7 @@ def main(_):
         max_steps = train_size * FLAGS.max_epochs
         total_loss = 0.0
         start_time = time.time()
-        for step in range(max_steps):
+        for step in xrange(max_steps):
             # read data
             cur_batch = trainDataStream.nextBatch()
             (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
