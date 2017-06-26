@@ -149,8 +149,8 @@ def cross_entropy(logits, truth, mask):
 #     xdev = x - x.max()
 #     return xdev - T.log(T.sum(T.exp(xdev)))
     logits = tf.multiply(logits, mask)
-    xdev = tf.sub(logits, tf.expand_dims(tf.reduce_max(logits, 1), -1))
-    log_predictions = tf.sub(xdev, tf.expand_dims(tf.log(tf.reduce_sum(tf.exp(xdev),-1)),-1))
+    xdev = tf.subtract(logits, tf.expand_dims(tf.reduce_max(logits, 1), -1))
+    log_predictions = tf.subtract(xdev, tf.expand_dims(tf.log(tf.reduce_sum(tf.exp(xdev),-1)),-1))
 #     return -T.sum(targets * log_predictions)
     result = tf.multiply(tf.multiply(truth, log_predictions), mask) # [batch_size, passage_len]
     return tf.multiply(-1.0,tf.reduce_sum(result, -1)) # [batch_size]
@@ -169,7 +169,7 @@ def highway_layer(in_val, output_size, scope=None):
         full_b = tf.get_variable("full_b", [output_size], dtype=tf.float32)
         trans = tf.nn.tanh(tf.nn.xw_plus_b(in_val, full_w, full_b))
         gate = tf.nn.sigmoid(tf.nn.xw_plus_b(in_val, highway_w, highway_b))
-        outputs = tf.add(tf.multiply(trans, gate), tf.multiply(in_val, tf.sub(1.0, gate)), "y")
+        outputs = tf.add(tf.multiply(trans, gate), tf.multiply(in_val, tf.subtract(1.0, gate)), "y")
     outputs = tf.reshape(outputs, [batch_size, passage_len, output_size])
     return outputs
 

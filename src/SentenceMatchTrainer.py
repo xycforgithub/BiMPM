@@ -2,6 +2,7 @@
 
 import argparse
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
 import time
 import re
@@ -13,7 +14,7 @@ from SentenceMatchModelGraph import SentenceMatchModelGraph
 import namespace_utils
 
 FLAGS = None
-
+# tf.logging.set_verbosity(tf.logging.ERROR) # DEBUG, INFO, WARN, ERROR, and FATAL
 def collect_vocabs(train_path, with_POS=False, with_NER=False):
     all_labels = set()
     all_words = set()
@@ -27,8 +28,8 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
         if line.startswith('-'): continue
         items = re.split("\t", line)
         label = items[0]
-        sentence1 = re.split("\\s+",items[1].lower())
-        sentence2 = re.split("\\s+",items[2].lower())
+        sentence1 = re.split("\\s+",items[1].strip().lower())
+        sentence2 = re.split("\\s+",items[2].strip().lower())
         all_labels.add(label)
         all_words.update(sentence1)
         all_words.update(sentence2)
@@ -162,6 +163,8 @@ def main(_):
             NER_vocab = Vocab(fileformat='voc', voc=all_NERs,dim=FLAGS.NER_dim)
             NER_vocab.dump_to_txt2(NER_path)
             
+    print('all_labels:',all_labels)
+    # for word in word_vocab.word_vecs:
 
     print('word_vocab shape is {}'.format(word_vocab.word_vecs.shape))
     print('tag_vocab shape is {}'.format(label_vocab.word_vecs.shape))

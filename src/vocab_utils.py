@@ -123,14 +123,20 @@ class Vocab(object):
         vec_file = open(vec_path, 'rt',encoding='utf-8')
 #         header = vec_file.readline()
 #         self.vocab_size, self.word_dim = map(int, header.split())
+        self.word_dim=0
         word_vecs = {}
         for line in vec_file:
             line = line.strip()
             parts = line.split(' ')
             word = parts[0]
-            self.word_dim = len(parts[1:])
-            if (voc is not None) and (word not in voc): continue
-            vector = np.array(parts[1:], dtype='float32')
+            if len(parts[1:])!=self.word_dim and self.word_dim!=0:
+                word=' '
+                if (voc is not None) and (word not in voc): continue
+                vector=np.array(parts, dtype='float32')
+            else:
+                self.word_dim = len(parts[1:])
+                if (voc is not None) and (word not in voc): continue
+                vector = np.array(parts[1:], dtype='float32')
             cur_index = len(self.word2id)
             self.word2id[word] = cur_index 
             self.id2word[cur_index] = word
@@ -139,8 +145,15 @@ class Vocab(object):
 
         self.vocab_size = len(self.word2id)
         self.word_vecs = np.zeros((self.vocab_size+1, self.word_dim), dtype=np.float32) # the last dimension is all zero
-        for cur_index in range(self.vocab_size):
-            self.word_vecs[cur_index] = word_vecs[cur_index]
+        try:
+            for cur_index in range(self.vocab_size):
+                self.word_vecs[cur_index] = word_vecs[cur_index]
+        except ValueError:
+            print(line)
+            print('word=',self.id2word[cur_index])
+            print('vector=',word_vecs[cur_index])
+            print('shape=',word_vecs[cur_index].shape)
+            input('check')
 
 
 

@@ -30,6 +30,7 @@ class SentenceMatchModelGraph(object):
             if fix_word_vec: 
                 word_vec_trainable = False
                 cur_device = '/cpu:0'
+            print('!!!shape=',word_vocab.word_vecs.shape)
             with tf.device(cur_device):
                 self.word_embedding = tf.get_variable("word_embedding", trainable=word_vec_trainable, 
                                                   initializer=tf.constant(word_vocab.word_vecs), dtype=tf.float32)
