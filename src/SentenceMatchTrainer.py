@@ -136,13 +136,16 @@ def main(_):
     has_pre_trained_model = False
     POS_vocab = None
     NER_vocab = None
-    if os.path.exists(best_path):
+    print('best path:', best_path)
+    if os.path.exists(best_path+'.data-00000-of-00001'):
+        print('exists')
         has_pre_trained_model = True
         label_vocab = Vocab(label_path, fileformat='txt2')
         char_vocab = Vocab(char_path, fileformat='txt2')
         if FLAGS.with_POS: POS_vocab = Vocab(POS_path, fileformat='txt2')
         if FLAGS.with_NER: NER_vocab = Vocab(NER_path, fileformat='txt2')
     else:
+        input('stop')
         print('Collect words, chars and labels ...')
         (all_words, all_chars, all_labels, all_POSs, all_NERs) = collect_vocabs(train_path, with_POS=FLAGS.with_POS, with_NER=FLAGS.with_NER)
         print('Number of words: {}'.format(len(all_words)))
@@ -163,7 +166,8 @@ def main(_):
             NER_vocab = Vocab(fileformat='voc', voc=all_NERs,dim=FLAGS.NER_dim)
             NER_vocab.dump_to_txt2(NER_path)
             
-    print('all_labels:',all_labels)
+    print('all_labels:',label_vocab)
+    print('has pretrained model:',has_pre_trained_model)
     # for word in word_vocab.word_vecs:
 
     print('word_vocab shape is {}'.format(word_vocab.word_vecs.shape))

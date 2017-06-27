@@ -80,7 +80,7 @@ if __name__ == '__main__':
     print('Build SentenceMatchDataStream ... ')
     testDataStream = SentenceMatchTrainer.SentenceMatchDataStream(in_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
+                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=False, 
                                               max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
     print('Number of instances in testDataStream: {}'.format(testDataStream.get_num_instance()))
     print('Number of batches in testDataStream: {}'.format(testDataStream.get_num_batch()))
