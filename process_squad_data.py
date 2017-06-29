@@ -1,19 +1,20 @@
 import json
 import numpy as np
 
-mode='dev'
+mode='train'
 n_ans='same'
-n_sent=1
-span_mode='overlap'  # exact or overlap
+n_sent=0
+span_mode='f1'  # exact or overlap or f1
 num_class=2
 predict=False
+verbose=False
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'\\'+mode+'-stanford.json',encoding='utf-8')
 if mode=='dev':
 	dump_data=open(r'D:\users\t-yicxu\biglearn\res_v16_dev.score.0.dump',encoding='utf-8')
 else:
 	dump_data=open(r'D:\users\t-yicxu\biglearn\res_v16_train.score.0.dump',encoding='utf-8')
-output_file=open(r'D:\users\t-yicxu\data\squad\entail_'+mode+'_%s_%d_%s_%dclass_tmp2.tsv' %(str(n_ans),n_sent,span_mode,num_class),'w',encoding='utf-8')
+output_file=open(r'D:\users\t-yicxu\data\squad\entail_'+mode+'_%s_%d_%s_%dclass.tsv' %(str(n_ans),n_sent,span_mode,num_class),'w',encoding='utf-8')
 
 	
 
@@ -31,7 +32,7 @@ assert line.strip()=='SQuDA'
 for line in input_data:
 	all_data['data'].append(json.loads(line))
 
-verbose=False
+
 proc_all_data=[]
 for (ii,data) in enumerate(all_data['data']):
 	if ii % 1000==0:
@@ -133,14 +134,18 @@ for (ii,data) in enumerate(all_data['data']):
 	all_tokens=sum(data['context_tokens'],[])
 	for sid in range(len(data['context_tokens'])):
 		partsum.append(partsum[-1]+len(data['context_tokens'][sid]))
-	gt_span_start=partsum[ans_span[0][0]]+ans_span[0][1]
-	gt_span_end=partsum[ans_span[1][0]]+ans_span[1][1]
+
 	added_count=0
 	if n_ans=='same':
 		target_num=len(new_answers)
 	else:
 		target_num=n_ans
-	for i in range(len(spans)):
+	first_ten_perm=np.random.permutation(10)
+	for tmpi in range(len(spans)):
+		if tmpi<10:
+			i=first_ten_perm[tmpi]
+		else:
+			i=tmpi
 		this_start=spans[span_rank[i]][0]
 		this_end=spans[span_rank[i]][1]
 
@@ -158,6 +163,17 @@ for (ii,data) in enumerate(all_data['data']):
 			if span_mode=='exact':
 				if this_start==a_gt_span_start and this_end==a_gt_span_end:
 					canuse=False
+			elif span_mode=='f1':
+				overlap_length=max(min(a_gt_span_end,this_end)+1-max(a_gt_span_start,this_start),0)
+				if overlap_length==0:
+					continue
+				else:
+					precision=overlap_length/(this_end-this_start+1)
+					recall=overlap_length/(a_gt_span_end - a_gt_span_start+1)
+					f1=2*precision*recall/(precision+recall)
+					if f1>=0.5:
+						canuse=False
+						break
 			else:
 				assert span_mode=='overlap'
 				if (this_start - a_gt_span_end)*(this_end - a_gt_span_start)<=0:
@@ -166,7 +182,17 @@ for (ii,data) in enumerate(all_data['data']):
 
 		if not canuse:
 			continue
-		texts.append(gt_text)
+		for start_sent in range(len(partsum)):
+			if partsum[start_sent+1]>=this_start:
+				break
+		for end_sent in range(len(partsum)):
+			if partsum[end_sent]>=this_end:
+				break
+
+		text_sent=range(start_sent,end_sent)
+		this_text=' '.join([' '.join([t for t in data['context_tokens'][k]]) for k in text_sent])
+
+		texts.append(this_text)
 		this_ans=' '.join([all_tokens[idx] for idx in range(this_start,this_end+1)])
 		thishyp=' '.join([ques_text,this_ans])
 		hyps.append(thishyp)
@@ -174,9 +200,9 @@ for (ii,data) in enumerate(all_data['data']):
 			labels.append(0)
 		else:
 			labels.append(2)
-		ids.append(data['id']+'_ans')
+		ids.append(data['id']+'_ans_%d' % (tmpi))
 		if verbose:
-			print('label=%d, text=%s, hyp=%s' % (labels[-1],texts[-1],hyps[-1]))
+			print('label=%d, text=%s, hyp=%s, id=%s' % (labels[-1],texts[-1],hyps[-1],ids[-1]))
 			input('check')
 		added_count+=1
 		if added_count==target_num:
@@ -190,13 +216,13 @@ if predict:
 	predict_out=open(r'D:\users\t-yicxu\BiMPM_1.0\model_data\sample_predict_tmp.json','w',encoding='utf-8')
 	json.dump(prediction,predict_out,ensure_ascii=False)
 for i in range(len(hyps)):
-	print('%d\t%s\t%s\t%s' % (labels[i], hyps[i],texts[i],ids[i]),file=output_file)	
+	print('%d\t%s\t%s\t%s' % (labels[i], texts[i],hyps[i],ids[i]),file=output_file)	
 text_lens=[len(a) for a in texts]
 hyp_lens=[len(a) for a in hyps]
 
 n_words_text=[]
 n_words_hyp=[]
-for i in range(len(n_words_hyp)):
+for i in range(len(hyps)):
 	n_words=len(hyps[i].split(' '))
 	n_words_hyp.append(n_words)
 
