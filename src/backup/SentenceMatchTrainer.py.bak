@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import print_function
 import argparse
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
 import time
 import re
@@ -14,7 +13,7 @@ from SentenceMatchModelGraph import SentenceMatchModelGraph
 import namespace_utils
 
 FLAGS = None
-# tf.logging.set_verbosity(tf.logging.ERROR) # DEBUG, INFO, WARN, ERROR, and FATAL
+
 def collect_vocabs(train_path, with_POS=False, with_NER=False):
     all_labels = set()
     all_words = set()
@@ -22,14 +21,14 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     all_NERs = None
     if with_POS: all_POSs = set()
     if with_NER: all_NERs = set()
-    infile = open(train_path, 'rt',encoding='utf-8')
+    infile = open(train_path, 'rt')
     for line in infile:
-        line = line.strip()
+        line = line.decode('utf-8').strip()
         if line.startswith('-'): continue
         items = re.split("\t", line)
         label = items[0]
-        sentence1 = re.split("\\s+",items[1].strip().lower())
-        sentence2 = re.split("\\s+",items[2].strip().lower())
+        sentence1 = re.split("\\s+",items[1].lower())
+        sentence2 = re.split("\\s+",items[2].lower())
         all_labels.add(label)
         all_words.update(sentence1)
         all_words.update(sentence2)
@@ -48,11 +47,11 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
     return (all_words, all_chars, all_labels, all_POSs, all_NERs)
 
 def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',char_vocab=None, POS_vocab=None, NER_vocab=None):
-    if outpath is not None: outfile = open(outpath, 'wt',encoding='utf-8')
+    if outpath is not None: outfile = open(outpath, 'wt')
     total_tags = 0.0
     correct_tags = 0.0
     dataStream.reset()
-    for batch_index in range(dataStream.get_num_batch()):
+    for batch_index in xrange(dataStream.get_num_batch()):
         cur_dev_batch = dataStream.get_batch(batch_index)
         (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
@@ -75,9 +74,6 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
             feed_dict[valid_graph.get_passage_char_lengths()] = sent2_char_length_batch
             feed_dict[valid_graph.get_in_question_chars()] = char_matrix_idx_1_batch
             feed_dict[valid_graph.get_in_passage_chars()] = char_matrix_idx_2_batch
-            # print(char_matrix_idx_1_batch)
-            # print(char_matrix_idx_2_batch)
-            # input('check')
 
         if POS_vocab is not None:
             feed_dict[valid_graph.get_in_question_poss()] = POS_idx_1_batch
@@ -93,13 +89,12 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
         if outpath is not None:
             if mode =='prediction':
                 predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
-                for i in range(len(label_batch)):
+                for i in xrange(len(label_batch)):
                     outline = label_batch[i] + "\t" + label_vocab.getWord(predictions[i]) + "\t" + sent1_batch[i] + "\t" + sent2_batch[i] + "\n"
-                    # outfile.write(outline.encode('utf-8'))
-                    outfile.write(outline)
+                    outfile.write(outline.encode('utf-8'))
             else:
                 probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
-                for i in range(len(label_batch)):
+                for i in xrange(len(label_batch)):
                     outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
 
     if outpath is not None: outfile.close()
@@ -109,7 +104,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
 def output_probs(probs, label_vocab):
     out_string = ""
-    for i in range(probs.size):
+    for i in xrange(probs.size):
         out_string += " {}:{}".format(label_vocab.getWord(i), probs[i])
     return out_string.strip()
 
@@ -139,16 +134,13 @@ def main(_):
     has_pre_trained_model = False
     POS_vocab = None
     NER_vocab = None
-    print('best path:', best_path)
-    if os.path.exists(best_path+'.data-00000-of-00001'):
-        print('exists')
+    if os.path.exists(best_path):
         has_pre_trained_model = True
         label_vocab = Vocab(label_path, fileformat='txt2')
         char_vocab = Vocab(char_path, fileformat='txt2')
         if FLAGS.with_POS: POS_vocab = Vocab(POS_path, fileformat='txt2')
         if FLAGS.with_NER: NER_vocab = Vocab(NER_path, fileformat='txt2')
     else:
-        input('stop')
         print('Collect words, chars and labels ...')
         (all_words, all_chars, all_labels, all_POSs, all_NERs) = collect_vocabs(train_path, with_POS=FLAGS.with_POS, with_NER=FLAGS.with_NER)
         print('Number of words: {}'.format(len(all_words)))
@@ -169,9 +161,6 @@ def main(_):
             NER_vocab = Vocab(fileformat='voc', voc=all_NERs,dim=FLAGS.NER_dim)
             NER_vocab.dump_to_txt2(NER_path)
             
-    print('all_labels:',label_vocab)
-    print('has pretrained model:',has_pre_trained_model)
-    # for word in word_vocab.word_vecs:
 
     print('word_vocab shape is {}'.format(word_vocab.word_vecs.shape))
     print('tag_vocab shape is {}'.format(label_vocab.word_vecs.shape))
@@ -261,7 +250,7 @@ def main(_):
         max_steps = train_size * FLAGS.max_epochs
         total_loss = 0.0
         start_time = time.time()
-        for step in range(max_steps):
+        for step in xrange(max_steps):
             # read data
             cur_batch = trainDataStream.nextBatch()
             (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 

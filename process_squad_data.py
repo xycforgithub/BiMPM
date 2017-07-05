@@ -1,12 +1,14 @@
 import json
 import numpy as np
 
-mode='train'
-n_ans='same'
-n_sent=0
+mode='dev'
+# n_ans='same'
+n_ans=0
+n_sent=1
 span_mode='f1'  # exact or overlap or f1
 num_class=2
 predict=False
+sentOnly=True
 verbose=False
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'\\'+mode+'-stanford.json',encoding='utf-8')
@@ -14,8 +16,10 @@ if mode=='dev':
 	dump_data=open(r'D:\users\t-yicxu\biglearn\res_v16_dev.score.0.dump',encoding='utf-8')
 else:
 	dump_data=open(r'D:\users\t-yicxu\biglearn\res_v16_train.score.0.dump',encoding='utf-8')
-output_file=open(r'D:\users\t-yicxu\data\squad\entail_'+mode+'_%s_%d_%s_%dclass.tsv' %(str(n_ans),n_sent,span_mode,num_class),'w',encoding='utf-8')
-
+if sentOnly:
+	output_file=open(r'D:\users\t-yicxu\data\squad\entail_'+mode+'_%s_%d_%s_%dclass_sentOnly.tsv' %(str(n_ans),n_sent,span_mode,num_class),'w',encoding='utf-8')
+else:
+	output_file=open(r'D:\users\t-yicxu\data\squad\entail_'+mode+'_%s_%d_%s_%dclass.tsv' %(str(n_ans),n_sent,span_mode,num_class),'w',encoding='utf-8')
 	
 
 texts=[]
@@ -74,7 +78,10 @@ for (ii,data) in enumerate(all_data['data']):
 		gt_ans=' '.join(gt_ans_words)
 		labels.append(1)
 		texts.append(gt_text)
-		thishyp=' '.join([ques_text,gt_ans])
+		if sentOnly:
+			thishyp=ques_text
+		else:
+			thishyp=' '.join([ques_text,gt_ans])
 		hyps.append(thishyp)
 		ids.append(data['id']+'_gt')
 		if verbose:
@@ -89,7 +96,10 @@ for (ii,data) in enumerate(all_data['data']):
 		chosen_sents=np.random.choice(list(available_sents),choose_num)
 		for sentid in chosen_sents:
 			texts.append(' '.join(data['context_tokens'][sentid]))
-			hyps.append(' '.join([ques_text,gt_ans]))
+			if sentOnly:
+				hyps.append(ques_text)
+			else:
+				hyps.append(' '.join([ques_text,gt_ans]))
 			if num_class==2:
 				labels.append(0)
 			else:
@@ -140,6 +150,8 @@ for (ii,data) in enumerate(all_data['data']):
 		target_num=len(new_answers)
 	else:
 		target_num=n_ans
+	if target_num==0:
+		continue
 	first_ten_perm=np.random.permutation(10)
 	for tmpi in range(len(spans)):
 		if tmpi<10:
@@ -186,7 +198,7 @@ for (ii,data) in enumerate(all_data['data']):
 			if partsum[start_sent+1]>=this_start:
 				break
 		for end_sent in range(len(partsum)):
-			if partsum[end_sent]>=this_end:
+			if partsum[end_sent]>this_end:
 				break
 
 		text_sent=range(start_sent,end_sent)

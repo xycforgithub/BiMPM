@@ -10,6 +10,7 @@ pred1=json.load(pred1_file)
 pred2=json.load(pred2_file)
 counter=0
 longer_counter=0
+shorter_counter=0
 for item in data['data']:
 	for para_data in item['paragraphs']:
 		# print(para_data.keys())
@@ -24,8 +25,11 @@ for item in data['data']:
 				counter+=1
 			if len(ans1)>len(ans2):
 				longer_counter+=1
+			elif len(ans1)<len(ans2):
+				shorter_counter+=1
 	# print(item['paragraphs'],file=out_file)
 print('%d different answers, %d longer' % (counter,longer_counter))
+print('%d different answers, %d shorter' % (counter,shorter_counter))
 
 
 

@@ -4,7 +4,7 @@ from math import log
 import sys
 
 dump_file=open(r'D:\users\t-yicxu\biglearn\res_v16_dev.score.0.dump',encoding='utf-8')
-entail_score_file=open(r'D:\users\t-yicxu\model_data\BiMPM\SentenceMatch.squad.test.squad_transfer_2class_randomunk.probs')
+entail_score_file=open(r'D:\users\t-yicxu\model_data\BiMPM\SentenceMatch.squad.test.squad_transfer_2class_nounk_f1_cheat.probs')
 out_file=open(r'..\model_data\predict.result','w',encoding='utf-8')
 n_class=2
 n_choice=10

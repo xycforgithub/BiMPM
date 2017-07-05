@@ -75,9 +75,6 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
             feed_dict[valid_graph.get_passage_char_lengths()] = sent2_char_length_batch
             feed_dict[valid_graph.get_in_question_chars()] = char_matrix_idx_1_batch
             feed_dict[valid_graph.get_in_passage_chars()] = char_matrix_idx_2_batch
-            # print(char_matrix_idx_1_batch)
-            # print(char_matrix_idx_2_batch)
-            # input('check')
 
         if POS_vocab is not None:
             feed_dict[valid_graph.get_in_question_poss()] = POS_idx_1_batch
