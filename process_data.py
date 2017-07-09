@@ -4,9 +4,14 @@ import en_core_web_sm as NlpEnglish
 
 parser=NlpEnglish.load(parser=False,matcher=False)
 part='test'
+n_class=2
 
 input_file=open(r'D:\users\t-yicxu\data\snli_1.0\snli_1.0_'+part+'.txt',encoding='utf-8')
-output_file=open(r'D:\users\t-yicxu\data\snli_1.0\\'+part+'_2class.tsv','w',newline='\n',encoding='utf-8')
+if n_class==3:
+	output_file=open(r'D:\users\t-yicxu\data\snli_1.0\\'+part+'.tsv','w',newline='\n',encoding='utf-8')	
+else:
+	assert n_class==2
+	output_file=open(r'D:\users\t-yicxu\data\snli_1.0\\'+part+'_2class.tsv','w',newline='\n',encoding='utf-8')
 reader=csv.DictReader(input_file,dialect='excel-tab')
 # writer=csv.DictWriter(output_file,dialect='excel-tab')
 texts=[]
@@ -21,9 +26,15 @@ for line in reader:
 		if line['gold_label']=='entailment':
 			label=1
 		elif line['gold_label']=='contradiction':
-			label=0
+			if n_class==3:
+				label=2
+			else:
+				label=0
 		elif line['gold_label']=='neutral':
-			label=0
+			if n_class==3:
+				label=3
+			else:
+				label=0
 		else:
 			assert line['gold_label']=='-'
 			counter+=1
@@ -45,4 +56,4 @@ for i in range(len(labels)):
 	thistext=next(proc_texts)
 	hypstr=' '.join([d.orth_ for d in thishyp])
 	textstr=' '.join([d.orth_ for d in thistext])
-	print('%d\t%s\t%s\t%s' % (labels[i], hypstr,textstr,ids[i]),file=output_file)	
+	print('%d\t%s\t%s\t%s' % (labels[i], textstr,hypstr,ids[i]),file=output_file)	

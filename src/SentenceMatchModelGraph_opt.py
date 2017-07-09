@@ -3,8 +3,8 @@ import my_rnn
 import match_utils
 
 
-class SentenceMatchModelGraph(object):
-    def __init__(self, num_classes, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None,
+class SentenceMatchModelGraph_opt(object):
+    def __init__(self, num_options, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None,
                  dropout_rate=0.5, learning_rate=0.001, optimize_type='adam',lambda_l2=1e-5, 
                  with_word=True, with_char=True, with_POS=True, with_NER=True, 
                  char_lstm_dim=20, context_lstm_dim=100, aggregation_lstm_dim=200, is_training=True,filter_layer_threshold=0.2,
@@ -12,8 +12,7 @@ class SentenceMatchModelGraph(object):
                  with_lex_features=False,lex_dim=100,word_level_MP_dim=-1,sep_endpoint=False,end_model_combine=False,with_match_highway=False,
                  with_aggregation_highway=False,highway_layer_num=1,with_lex_decomposition=False, lex_decompsition_dim=-1,
                  with_left_match=True, with_right_match=True,
-                 with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
-                 num_options=-1):
+                 with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True):
 
         # ======word representation layer======
         in_question_repres = []
@@ -165,13 +164,8 @@ class SentenceMatchModelGraph(object):
         #========Prediction Layer=========
         w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
         b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)
-
-        if use_options:
-            w_1 = tf.get_variable("w_1", [match_dim/2, 1],dtype=tf.float32)
-            b_1 = tf.get_variable("b_1", [1],dtype=tf.float32)
-        else:
-            w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
-            b_1 = tf.get_variable("b_1", [num_classes],dtype=tf.float32)
+        w_1 = tf.get_variable("w_1", [match_dim/2, 1],dtype=tf.float32)
+        b_1 = tf.get_variable("b_1", [1],dtype=tf.float32)
 
         logits = tf.matmul(match_representation, w_0) + b_0
         logits = tf.tanh(logits)
@@ -181,40 +175,24 @@ class SentenceMatchModelGraph(object):
             logits = tf.multiply(logits, (1 - dropout_rate))
         logits = tf.matmul(logits, w_1) + b_1
 
-        self.final_logits=logits
-        if use_options:
-            logits=tf.reshape(logits,[-1,num_options])
-            gold_matrix=tf.reshape(self.truth,[-1,num_options])
+        logits=tf.reshape(logits,[-1,num_options])
+        gold_matrix=tf.reshape(self.truth,[-1,num_options])
 
-            self.prob = tf.nn.softmax(logits)
-            
-    #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
-    #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
-
-            # gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-    #         gold_matrix = tf.one_hot(self.truth, num_classes)
-            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
-
-            # correct = tf.nn.in_top_k(logits, self.truth, 1)
-            # self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
-            correct = tf.equal(tf.argmax(logits,1),tf.argmax(gold_matrix,1))
-            self.correct=correct
-
-        else:
-            self.prob = tf.nn.softmax(logits)
-            
-    #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
-    #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
-
-            gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-    #         gold_matrix = tf.one_hot(self.truth, num_classes)
-            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
-
-            correct = tf.nn.in_top_k(logits, self.truth, 1)
-        self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
-        self.predictions = tf.arg_max(self.prob, 1)
-
+        self.prob = tf.nn.softmax(logits)
         
+#         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
+#         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
+
+        # gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
+#         gold_matrix = tf.one_hot(self.truth, num_classes)
+        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+
+        # correct = tf.nn.in_top_k(logits, self.truth, 1)
+        # self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+        correct = tf.equal(tf.argmax(logits,1),tf.argmax(gold_matrix,1))
+        self.eval_correct=tf.reduce_sum(tf.cast(correct,tf.int32))
+
+        self.predictions = tf.arg_max(self.prob, 1)
 
         if optimize_type == 'adadelta':
             clipper = 50 

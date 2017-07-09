@@ -12,8 +12,10 @@ from vocab_utils import Vocab
 from SentenceMatchDataStream import SentenceMatchDataStream
 from SentenceMatchModelGraph import SentenceMatchModelGraph
 import namespace_utils
+import numpy as np
 
 FLAGS = None
+num_options=4
 # tf.logging.set_verbosity(tf.logging.ERROR) # DEBUG, INFO, WARN, ERROR, and FATAL
 def collect_vocabs(train_path, with_POS=False, with_NER=False):
     all_labels = set()
@@ -89,18 +91,32 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
 
         total_tags += len(label_batch)
-        correct_tags += sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)
+        if FLAGS.use_options:
+            correct_tags+=sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)*4
+        else:
+            correct_tags += sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)
         if outpath is not None:
-            if mode =='prediction':
-                predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
-                for i in range(len(label_batch)):
-                    outline = label_batch[i] + "\t" + label_vocab.getWord(predictions[i]) + "\t" + sent1_batch[i] + "\t" + sent2_batch[i] + "\n"
-                    # outfile.write(outline.encode('utf-8'))
-                    outfile.write(outline)
+            if FLAGS.use_options:
+                if mode=='prediction':
+                    predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
+                    for i in range(len(label_batch)//num_options):
+                        gt=np.argmax(label_batch[i*4:(i+1)*4])
+                        outline=gt+"\t"+predictions[i]
+                        outfile.write(outline)
+                else:
+                    probs=sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+
             else:
-                probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
-                for i in range(len(label_batch)):
-                    outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
+                if mode =='prediction':
+                    predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
+                    for i in range(len(label_batch)):
+                        outline = label_batch[i] + "\t" + label_vocab.getWord(predictions[i]) + "\t" + sent1_batch[i] + "\t" + sent2_batch[i] + "\n"
+                        # outfile.write(outline.encode('utf-8'))
+                        outfile.write(outline)
+                else:
+                    probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+                    for i in range(len(label_batch)):
+                        outfile.write(output_probs_options(probs[i]) + "\n")
 
     if outpath is not None: outfile.close()
 
@@ -111,6 +127,11 @@ def output_probs(probs, label_vocab):
     out_string = ""
     for i in range(probs.size):
         out_string += " {}:{}".format(label_vocab.getWord(i), probs[i])
+    return out_string.strip()
+def output_probs_options(probs):
+    out_string = ""
+    for i in range(probs.size):
+        out_string += " {}:{}".format(i, probs[i])
     return out_string.strip()
 
 def main(_):
@@ -148,11 +169,17 @@ def main(_):
         if FLAGS.with_POS: POS_vocab = Vocab(POS_path, fileformat='txt2')
         if FLAGS.with_NER: NER_vocab = Vocab(NER_path, fileformat='txt2')
     else:
-        input('stop')
+        print('Creating new model')
         print('Collect words, chars and labels ...')
         (all_words, all_chars, all_labels, all_POSs, all_NERs) = collect_vocabs(train_path, with_POS=FLAGS.with_POS, with_NER=FLAGS.with_NER)
+        if FLAGS.use_options:
+            all_labels=['0','1']
         print('Number of words: {}'.format(len(all_words)))
         print('Number of labels: {}'.format(len(all_labels)))
+        # for word in all_labels:
+        #     print('label',word)
+        # input('check')
+
         label_vocab = Vocab(fileformat='voc', voc=all_labels,dim=2)
         label_vocab.dump_to_txt2(label_path)
 
@@ -180,17 +207,17 @@ def main(_):
     print('Build SentenceMatchDataStream ... ')
     trainDataStream = SentenceMatchDataStream(train_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, isSort=True, 
+                                              batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, isSort=(not FLAGS.wo_sort_instance_based_on_length), 
                                               max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
                                     
     devDataStream = SentenceMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
+                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=(not FLAGS.wo_sort_instance_based_on_length), 
                                               max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
 
     testDataStream = SentenceMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=True, 
+                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=(not FLAGS.wo_sort_instance_based_on_length), 
                                               max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
 
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
@@ -221,7 +248,8 @@ def main(_):
                  lex_decompsition_dim=FLAGS.lex_decompsition_dim,
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match))
+                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
+                 use_options=FLAGS.use_options, num_options=num_options)
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
         
 #         with tf.name_scope("Valid"):
@@ -238,12 +266,13 @@ def main(_):
                  lex_decompsition_dim=FLAGS.lex_decompsition_dim,
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match))
+                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match),
+                 use_options=FLAGS.use_options, num_options=num_options)
 
                 
         initializer = tf.global_variables_initializer()
         vars_ = {}
-        for var in tf.all_variables():
+        for var in tf.global_variables():
             if "word_embedding" in var.name: continue
 #             if not var.name.startswith("Model"): continue
             vars_[var.name.split(":")[0]] = var
@@ -261,6 +290,7 @@ def main(_):
         max_steps = train_size * FLAGS.max_epochs
         total_loss = 0.0
         start_time = time.time()
+        sub_loss_counter=0.0
         for step in range(max_steps):
             # read data
             cur_batch = trainDataStream.nextBatch()
@@ -268,6 +298,14 @@ def main(_):
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
                                  sent1_char_length_batch, sent2_char_length_batch,
                                  POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch) = cur_batch
+            # print(label_id_batch)
+            if FLAGS.verbose:
+                print(label_id_batch)
+                print(sent1_length_batch)
+                print(sent2_length_batch)
+                print(word_idx_1_batch)
+                print(word_idx_2_batch)
+                input('check')
             feed_dict = {
                          train_graph.get_truth(): label_id_batch, 
                          train_graph.get_question_lengths(): sent1_length_batch, 
@@ -293,12 +331,23 @@ def main(_):
                 feed_dict[train_graph.get_in_question_ners()] = NER_idx_1_batch
                 feed_dict[train_graph.get_in_passage_ners()] = NER_idx_2_batch
 
-            _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)
+            if FLAGS.verbose:
+                _, loss_value, pred, prob, logits, correct = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
+                    train_graph.final_logits, train_graph.correct], feed_dict=feed_dict)
+                print('pred=',pred)
+                print('prob=',prob)
+                print('logits=',logits)
+                print('correct=',correct)
+                input('check')
+            else:
+                _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)
             total_loss += loss_value
+            sub_loss_counter+=loss_value
             
             if step % 100==0: 
-                print('{} '.format(step), end="")
+                print('{},{} '.format(step,sub_loss_counter), end="")
                 sys.stdout.flush()
+                sub_loss_counter=0.0
 
             # Save a checkpoint and evaluate the model periodically.
             if (step + 1) % trainDataStream.get_num_batch() == 0 or (step + 1) == max_steps:
@@ -395,6 +444,9 @@ if __name__ == '__main__':
     parser.add_argument('--wo_attentive_match', default=False, help='Without attentive matching', action='store_true')
     parser.add_argument('--wo_max_attentive_match', default=False, help='Without max attentive matching.', action='store_true')
     parser.add_argument('--wo_char', default=False, help='Without character-composed embeddings.', action='store_true')
+    parser.add_argument('--use_options',default=False, help='Use softmax on RACE options',action='store_true')
+    parser.add_argument('--verbose',default=False, help='Print test information',action='store_true')
+    parser.add_argument('--wo_sort_instance_based_on_length',default=False,help='Without sorting sentences based on length',action='store_true')
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()

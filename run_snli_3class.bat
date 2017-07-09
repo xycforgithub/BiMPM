@@ -1,0 +1,4 @@
+set CUDA_DEVICE_ORDER=PCI_BUS_ID
+set CUDA_VISIBLE_DEVICES=2
+set TF_CPP_MIN_LOG_LEVEL=1
+python src\SentenceMatchTrainer.py --train_path D:\users\t-yicxu\data\snli_1.0\train.tsv --dev_path D:\users\t-yicxu\data\snli_1.0\dev.tsv --test_path D:\users\t-yicxu\data\snli_1.0\test.tsv --word_vec_path D:\users\t-yicxu\data\snli_1.0\word2vec_nounk_withdev.txt --suffix snli_newconfig_3class_rerun --fix_word_vec --model_dir D:\users\t-yicxu\model_data\BiMPM\ --batch_size 60 --MP_dim 10 --with_highway --with_match_highway --with_aggregation_highway --aggregation_lstm_dim 300 --context_layer_num 2 --aggregation_layer_num 2 
