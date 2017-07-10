@@ -249,7 +249,7 @@ def main(_):
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
         
 #         with tf.name_scope("Valid"):
@@ -267,7 +267,7 @@ def main(_):
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match),
-                 use_options=FLAGS.use_options, num_options=num_options)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
 
                 
         initializer = tf.global_variables_initializer()
@@ -344,7 +344,7 @@ def main(_):
             total_loss += loss_value
             sub_loss_counter+=loss_value
             
-            if step % 100==0: 
+            if step % int(FLAGS.display_every)==0: 
                 print('{},{} '.format(step,sub_loss_counter), end="")
                 sys.stdout.flush()
                 sub_loss_counter=0.0
@@ -447,6 +447,8 @@ if __name__ == '__main__':
     parser.add_argument('--use_options',default=False, help='Use softmax on RACE options',action='store_true')
     parser.add_argument('--verbose',default=False, help='Print test information',action='store_true')
     parser.add_argument('--wo_sort_instance_based_on_length',default=False,help='Without sorting sentences based on length',action='store_true')
+    parser.add_argument('--with_no_match',default=False,help='Does not perform any matching',action='store_true')
+    parser.add_argument('--display_every',default=100,help='Display progress every X step.')
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()

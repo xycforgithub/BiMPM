@@ -485,7 +485,8 @@ def bilateral_match_func2(in_question_repres, in_passage_repres,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
                         with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True,
-                        with_left_match=True, with_right_match=True, with_mean_aggregation=True):
+                        with_left_match=True, with_right_match=True, with_mean_aggregation=True, with_no_match=False):
+
 
     cosine_matrix = cal_relevancy_matrix(in_question_repres, in_passage_repres) # [batch_size, passage_len, question_len]
     cosine_matrix = mask_relevancy_matrix(cosine_matrix, question_mask, mask)
@@ -546,27 +547,40 @@ def bilateral_match_func2(in_question_repres, in_passage_repres,
                                         context_lstm_cell_fw, context_lstm_cell_bw, in_passage_repres, dtype=tf.float32, 
                                         sequence_length=passage_lengths) # [batch_size, passage_len, context_lstm_dim]
                     in_passage_repres = tf.concat([passage_context_representation_fw, passage_context_representation_bw], 2)
+                if with_no_match:
+                    question_aware_representatins.append(passage_context_representation_fw)
+
+                    question_aware_representatins.append(passage_context_representation_bw)
+                    passage_aware_representatins.append(question_context_representation_fw)
+                    passage_aware_representatins.append(question_context_representation_bw)
+
+                    # question_aware_representatins.append(question_context_representation_fw)
+                    # print(question_context_representation_fw.shape)
+                    # print(question_context_representation_bw.shape)
+                    # question_aware_representatins.append(question_context_representation_bw)
+                    # passage_aware_representatins.append(passage_context_representation_fw)
+                    # passage_aware_representatins.append(passage_context_representation_bw)
+                else:
+                    # Multi-perspective matching
+                    with tf.variable_scope('left_MP_matching'):
+                        (matching_vectors, matching_dim) = match_passage_with_question(passage_context_representation_fw, 
+                                    passage_context_representation_bw, mask,
+                                    question_context_representation_fw, question_context_representation_bw,question_mask,
+                                    MP_dim, context_lstm_dim, scope=None,
+                                    with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                    with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
+                        question_aware_representatins.extend(matching_vectors)
+                        question_aware_dim += matching_dim
                     
-                # Multi-perspective matching
-                with tf.variable_scope('left_MP_matching'):
-                    (matching_vectors, matching_dim) = match_passage_with_question(passage_context_representation_fw, 
-                                passage_context_representation_bw, mask,
-                                question_context_representation_fw, question_context_representation_bw,question_mask,
-                                MP_dim, context_lstm_dim, scope=None,
-                                with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
-                                with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
-                    question_aware_representatins.extend(matching_vectors)
-                    question_aware_dim += matching_dim
-                
-                with tf.variable_scope('right_MP_matching'):
-                    (matching_vectors, matching_dim) = match_passage_with_question(question_context_representation_fw, 
-                                question_context_representation_bw, question_mask,
-                                passage_context_representation_fw, passage_context_representation_bw,mask,
-                                MP_dim, context_lstm_dim, scope=None,
-                                with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
-                                with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
-                    passage_aware_representatins.extend(matching_vectors)
-                    passage_aware_dim += matching_dim
+                    with tf.variable_scope('right_MP_matching'):
+                        (matching_vectors, matching_dim) = match_passage_with_question(question_context_representation_fw, 
+                                    question_context_representation_bw, question_mask,
+                                    passage_context_representation_fw, passage_context_representation_bw,mask,
+                                    MP_dim, context_lstm_dim, scope=None,
+                                    with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                    with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
+                        passage_aware_representatins.extend(matching_vectors)
+                        passage_aware_dim += matching_dim
         
 
         

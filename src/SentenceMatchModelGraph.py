@@ -13,7 +13,7 @@ class SentenceMatchModelGraph(object):
                  with_aggregation_highway=False,highway_layer_num=1,with_lex_decomposition=False, lex_decompsition_dim=-1,
                  with_left_match=True, with_right_match=True,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
-                 num_options=-1):
+                 num_options=-1, with_no_match=False):
 
         # ======word representation layer======
         in_question_repres = []
@@ -160,7 +160,7 @@ class SentenceMatchModelGraph(object):
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        with_left_match, with_right_match)
+                        with_left_match, with_right_match, with_no_match=with_no_match)
 
         #========Prediction Layer=========
         w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)

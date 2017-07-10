@@ -3,7 +3,7 @@ import numpy as np
 
 n_choice=10
 predict=False
-mode='sent' # cheat or normal or sent
+mode='normal' # cheat or normal or sent
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\squad\dev\dev-stanford.json',encoding='utf-8')
 dump_data=open(r'D:\users\t-yicxu\biglearn\res_v16_dev.score.0.dump',encoding='utf-8')
@@ -28,12 +28,15 @@ line=input_data.readline()
 assert line.strip()=='SQuDA'
 for line in input_data:
 	all_data['data'].append(json.loads(line))
+	# if len(all_data['data']) % 1000==0:
+	# 	break
 
 verbose=False
 proc_all_data=[]
 for (ii,data) in enumerate(all_data['data']):
 	if ii % 1000==0:
 		print('proc data',ii)
+		# break
 	
 	
 	dump_line=next(dump_data)
