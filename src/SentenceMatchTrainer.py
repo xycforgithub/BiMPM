@@ -49,7 +49,7 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False):
             all_chars.add(char)
     return (all_words, all_chars, all_labels, all_POSs, all_NERs)
 
-def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',char_vocab=None, POS_vocab=None, NER_vocab=None):
+def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',char_vocab=None, POS_vocab=None, NER_vocab=None, use_options=False):
     if outpath is not None: outfile = open(outpath, 'wt',encoding='utf-8')
     total_tags = 0.0
     correct_tags = 0.0
@@ -91,12 +91,12 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
 
         total_tags += len(label_batch)
-        if FLAGS.use_options:
+        if use_options:
             correct_tags+=sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)*4
         else:
             correct_tags += sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)
         if outpath is not None:
-            if FLAGS.use_options:
+            if use_options:
                 if mode=='prediction':
                     predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
                     for i in range(len(label_batch)//num_options):
@@ -104,7 +104,9 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                         outline=gt+"\t"+predictions[i]
                         outfile.write(outline)
                 else:
-                    probs=sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+                    probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+                    for i in range(len(label_batch)):
+                        outfile.write(output_probs_options(probs[i]) + "\n")
 
             else:
                 if mode =='prediction':
@@ -116,7 +118,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                 else:
                     probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
                     for i in range(len(label_batch)):
-                        outfile.write(output_probs_options(probs[i]) + "\n")
+                        outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
 
     if outpath is not None: outfile.close()
 
@@ -143,8 +145,8 @@ def main(_):
     test_path = FLAGS.test_path
     word_vec_path = FLAGS.word_vec_path
     log_dir = FLAGS.model_dir
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # if not os.path.exists(log_dir):
+    #     os.makedirs(log_dir)
     
     path_prefix = log_dir + "/SentenceMatch.{}".format(FLAGS.suffix)
 
@@ -207,18 +209,24 @@ def main(_):
     print('Build SentenceMatchDataStream ... ')
     trainDataStream = SentenceMatchDataStream(train_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, isSort=(not FLAGS.wo_sort_instance_based_on_length), 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
+                                              batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, 
+                                              isSort=(not FLAGS.wo_sort_instance_based_on_length), 
+                                              max_char_per_word=FLAGS.max_char_per_word, 
+                                              max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length)
                                     
     devDataStream = SentenceMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=(not FLAGS.wo_sort_instance_based_on_length), 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
+                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, 
+                                              isSort=(not FLAGS.wo_sort_instance_based_on_length), 
+                                              max_char_per_word=FLAGS.max_char_per_word, 
+                                              max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length)
 
     testDataStream = SentenceMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
-                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=(not FLAGS.wo_sort_instance_based_on_length), 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
+                                              batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, 
+                                              isSort=(not FLAGS.wo_sort_instance_based_on_length), 
+                                              max_char_per_word=FLAGS.max_char_per_word, 
+                                              max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length)
 
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
     print('Number of instances in devDataStream: {}'.format(devDataStream.get_num_instance()))
@@ -421,6 +429,7 @@ if __name__ == '__main__':
     parser.add_argument('--MP_dim', type=int, default=10, help='Number of perspectives for matching vectors.')
     parser.add_argument('--max_char_per_word', type=int, default=10, help='Maximum number of characters for each word.')
     parser.add_argument('--max_sent_length', type=int, default=100, help='Maximum number of words within each sentence.')
+    parser.add_argument('--max_hyp_length', type=int, default=100, help='Maximum number of words within hypothesis.')
     parser.add_argument('--aggregation_layer_num', type=int, default=1, help='Number of LSTM layers for aggregation layer.')
     parser.add_argument('--context_layer_num', type=int, default=1, help='Number of LSTM layers for context representation layer.')
     parser.add_argument('--highway_layer_num', type=int, default=1, help='Number of highway layers.')

@@ -4,20 +4,35 @@ import numpy as np
 mode='dev'
 # n_ans='same'
 concat_mode='replace' # replace or concat
-shuffle=True
+shuffle=False
 shuffle_questions=False
 choice_num=4
 verbose=False
 true_repeat=1
+middle_only=False
+high_only=True
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')
 input_data2=open(r'D:\users\t-yicxu\data\race\processed\\'+mode+'_high.json',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\race\processed\\'+mode+'_middle.json',encoding='utf-8')
 
 if shuffle_questions:
-	output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_options.tsv' %(concat_mode),'w',encoding='utf-8')
-else:
-	output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_middle.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
+	output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_options_all.tsv' %(concat_mode),'w',encoding='utf-8')
+elif middle_only:
+	if shuffle:
+		output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_middle_shuffled.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
+	else:
+		output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_middle.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
+elif high_only:
+	if shuffle:
+		output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_high_shuffled.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
+	else:
+		output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_high.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
 
+else:
+	if shuffle:
+		output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_all_shuffled.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
+	else:
+		output_file=open(r'D:\users\t-yicxu\data\race\entail_'+mode+'_%s_%d_all.tsv' %(concat_mode,true_repeat),'w',encoding='utf-8')
 
 texts=[]
 hyps=[]
@@ -25,12 +40,18 @@ labels=[]
 ids=[]
 prediction={}
 
-all_data=json.load(input_data)
-# all_data2=json.load(input_data2)
-print(len(all_data['data']))
-# print(len(all_data['data']),len(all_data2['data']))
+if middle_only:
+	all_data=json.load(input_data)
+	print(len(all_data['data']))
+elif high_only:
+	all_data=json.load(input_data2)
+	print(len(all_data['data']))
+else:
+	all_data=json.load(input_data)
+	all_data2=json.load(input_data2)
+	print(len(all_data['data']),len(all_data2['data']))
 
-# all_data['data']=all_data['data']+all_data2['data']
+	all_data['data']=all_data['data']+all_data2['data']
 
 # all_data={'data':[]}
 # line=input_data.readline()
@@ -55,7 +76,7 @@ for outid in range(len(all_data['data'])):
 	ii=question_order[outid]
 	data=all_data['data'][ii]
 # for (ii,data) in enumerate(all_data['data']):
-	if outid % 1000==0:
+	if outid % 1000==0 and outid!=0:
 		print('proc data',outid)
 		# break
 	passage_text=token_to_text(data['document'])
@@ -119,6 +140,8 @@ for iidd in range(len(hyps)):
 	i=perm[iidd]
 	if '\t' in texts[i] or '\t' in hyps[i]:
 		tabcount+=1
+	# if iidd == 20000:
+	# 	break
 	print('%d\t%s\t%s\t%s' % (labels[i], texts[i],hyps[i],ids[i]),file=output_file)	
 print('tab count=',tabcount)
 text_lens=[len(a) for a in texts]

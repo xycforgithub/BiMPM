@@ -35,7 +35,7 @@ def pad_3d_tensor(in_val, max_length1=None, max_length2=None, dtype=np.int32):
 
 class SentenceMatchDataStream(object):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
-                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200):
+                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200,max_hyp_length=100):
         instances = []
         infile = open(inpath, 'rt',encoding='utf-8')
         for line in infile:
@@ -57,9 +57,9 @@ class SentenceMatchDataStream(object):
             if len(word_idx_1)>max_sent_length: 
                 word_idx_1 = word_idx_1[:max_sent_length]
                 char_matrix_idx_1 = char_matrix_idx_1[:max_sent_length]
-            if len(word_idx_2)>max_sent_length:
-                word_idx_2 = word_idx_2[:max_sent_length]
-                char_matrix_idx_2 = char_matrix_idx_2[:max_sent_length]
+            if len(word_idx_2)>max_hyp_length:
+                word_idx_2 = word_idx_2[:max_hyp_length]
+                char_matrix_idx_2 = char_matrix_idx_2[:max_hyp_length]
 
             POS_idx_1 = None
             POS_idx_2 = None

@@ -1,7 +1,7 @@
 import json
 import numpy as np
 
-n_choice=10
+n_choice=5
 predict=False
 mode='normal' # cheat or normal or sent
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')

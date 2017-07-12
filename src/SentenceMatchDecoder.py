@@ -18,6 +18,8 @@ if __name__ == '__main__':
     parser.add_argument('--out_path', type=str, required=True, help='The path to the output file.')
     parser.add_argument('--word_vec_path', type=str, required=True, help='word embedding file for the input file.')
     parser.add_argument('--mode', type=str, default="prediction", help='prediction or probs')
+    parser.add_argument('--use_options', default=False, help='use options softmax')
+
 
 
     args, unparsed = parser.parse_known_args()
@@ -60,6 +62,8 @@ if __name__ == '__main__':
     wo_max_attentive_match = False
     if hasattr(FLAGS, 'wo_max_attentive_match'): wo_max_attentive_match = FLAGS.wo_max_attentive_match
 
+    max_hyp_length = 100
+    if hasattr(FLAGS, 'max_hyp_length'): max_hyp_length = FLAGS.max_hyp_length
 
     # load vocabs
     print('Loading vocabs.')
@@ -81,7 +85,8 @@ if __name__ == '__main__':
     testDataStream = SentenceMatchTrainer.SentenceMatchDataStream(in_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=False, isLoop=True, isSort=False, 
-                                              max_char_per_word=FLAGS.max_char_per_word, max_sent_length=FLAGS.max_sent_length)
+                                              max_char_per_word=FLAGS.max_char_per_word, 
+                                              max_sent_length=FLAGS.max_sent_length, max_hyp_length=max_hyp_length)
     print('Number of instances in testDataStream: {}'.format(testDataStream.get_num_instance()))
     print('Number of batches in testDataStream: {}'.format(testDataStream.get_num_batch()))
 
@@ -121,7 +126,7 @@ if __name__ == '__main__':
         saver.restore(sess, best_path)
 
         accuracy = SentenceMatchTrainer.evaluate(testDataStream, valid_graph, sess, outpath=out_path, label_vocab=label_vocab,mode=args.mode,
-                                                 char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab)
+                                                 char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, use_options=FLAGS.use_options)
         print("Accuracy for test set is %.2f" % accuracy)
 
 

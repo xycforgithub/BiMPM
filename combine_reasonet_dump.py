@@ -4,7 +4,7 @@ from math import log
 import sys
 
 dump_file=open(r'D:\users\t-yicxu\biglearn\res_v16_dev.score.0.dump',encoding='utf-8')
-entail_score_file=open(r'D:\users\t-yicxu\model_data\BiMPM\SentenceMatch.squad.test.squad_transfer_2class_nounk_f1_cheat.probs')
+entail_score_file=open(r'D:\users\t-yicxu\model_data\BiMPM\SentenceMatch.squad_scratch_2class_nounk_4_re3_fixword_10choice.probs')
 out_file=open(r'..\model_data\predict.result','w',encoding='utf-8')
 n_class=2
 n_choice=10
@@ -40,7 +40,13 @@ for dump_line in dump_file:
 	all_scores=[]
 	for i in range(n_choice):
 		entail_line=next(entail_score_file)
-		choice,entail_probs=entail_line.split('\t')
+		# import pdb; pdb.set_trace()
+		try:
+			choice,entail_probs=entail_line.split('\t')
+		except ValueError:
+			print(entail_line)
+			input('check')
+		# entail_probs=entail_line
 		find=False
 		for each_prob in entail_probs.split(' '):
 			label,prob = each_prob.split(':')

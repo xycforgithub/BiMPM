@@ -3,7 +3,7 @@ import numpy as np
 
 mode='dev'
 # n_ans='same'
-n_ans=1
+n_ans=4
 n_sent=0
 repeat_gt=1
 span_mode='f1'  # exact or overlap or f1
