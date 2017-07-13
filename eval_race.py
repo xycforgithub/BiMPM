@@ -1,6 +1,13 @@
 import numpy as np
+import random
+import json
 
-pred_file=open(r'd:\users\t-yicxu\model_data\BiMPM\SentenceMatch.race_replace_middle.probs')
+pred_file=open(r'd:\users\t-yicxu\model_data\BiMPM\SentenceMatch.race_replace_high.probs')
+input_data=open(r'D:\users\t-yicxu\data\race\processed\dev_high.json',encoding='utf-8')
+all_data=json.load(input_data)
+
+out_file=open(r'../model_data/result.txt','w',encoding='utf-8')
+
 n_choice=4
 label_list=[]
 prob_list=[]
@@ -29,6 +36,10 @@ for entail_line in pred_file:
 		assert(int(label_list[gt_ans])==1)
 		if pred_ans==gt_ans:
 			correctcount+=1
+		if random.random()>0.5 and pred_ans==gt_ans :
+			data=all_data['data'][pbcount]
+			print('passage=',' '.join(data['document']),'question=',' '.join(data['question']),
+				'options=',data['options'],'pred=',pred_ans,'gt=',gt_ans,'pred_gap=',prob_list[gt_ans]-np.mean(prob_list),file=out_file)
 		pbcount+=1
 		# print(pred_ans,gt_ans)
 		# input('check')

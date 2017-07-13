@@ -1,16 +1,17 @@
 import json
 import numpy as np
+from tqdm import tqdm
 
 mode='dev'
 # n_ans='same'
-concat_mode='replace' # replace or concat
+concat_mode='concat' # replace or concat
 shuffle=False
 shuffle_questions=False
 choice_num=4
 verbose=False
 true_repeat=1
 middle_only=False
-high_only=True
+high_only=False
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')
 input_data2=open(r'D:\users\t-yicxu\data\race\processed\\'+mode+'_high.json',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\race\processed\\'+mode+'_middle.json',encoding='utf-8')
@@ -72,12 +73,12 @@ if shuffle_questions:
 	question_order=np.random.permutation(len(all_data['data']))
 else:
 	question_order=range(len(all_data['data']))
-for outid in range(len(all_data['data'])):
+for outid in tqdm(range(len(all_data['data']))):
 	ii=question_order[outid]
 	data=all_data['data'][ii]
 # for (ii,data) in enumerate(all_data['data']):
-	if outid % 1000==0 and outid!=0:
-		print('proc data',outid)
+	# if outid % 1000==0 and outid!=0:
+	# 	print('proc data',outid)
 		# break
 	passage_text=token_to_text(data['document'])
 	if concat_mode=='concat' or (data['question'].count('_')!=1):

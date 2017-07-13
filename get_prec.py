@@ -1,10 +1,11 @@
 import numpy as np
 import json
 
-entail_score_file=open(r'D:\users\t-yicxu\model_data\BiMPM\SentenceMatch.squad_transfer_sentOnly_1.probs',encoding='utf-8')
+entail_score_file=open(r'D:\users\t-yicxu\model_data\BiMPM\SentenceMatch.squad_transfer_sentOnly_2.probs',encoding='utf-8')
 # gt_file=open(r'D:\users\t-yicxu\data\squad\entail_test_10choice_sent.tsv',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\squad\dev\dev-stanford.json',encoding='utf-8')
 recallat=1
+
 
 all_data={'data':[]}
 line=input_data.readline()

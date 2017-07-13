@@ -370,7 +370,7 @@ def main(_):
                 print('Validation Data Eval:')
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab)
                 print("Current accuracy is %.2f" % accuracy)
-                if accuracy>best_accuracy:
+                if accuracy>=best_accuracy:
                     best_accuracy = accuracy
                     saver.save(sess, best_path)
 
