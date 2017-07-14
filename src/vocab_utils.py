@@ -5,9 +5,10 @@ import re
 
 # import math
 class Vocab(object):
-    def __init__(self, vec_path=None, dim=100, fileformat='bin',voc=None, word2id=None, word_vecs=None, unk_mapping_path=None):
+    def __init__(self, vec_path=None, dim=100, fileformat='bin',voc=None, word2id=None, word_vecs=None, unk_mapping_path=None, tolower=True):
         self.unk_label = '<unk>'
         self.stoplist = None
+        self.tolower=tolower
         if fileformat == 'bin':
             self.fromBinary(vec_path,voc=voc)
         elif fileformat == 'txt':
@@ -331,7 +332,10 @@ class Vocab(object):
         return seq
 
     def to_index_sequence4binary_features(self, sentence):
-        sentence = sentence.strip().lower()
+        if self.tolower:
+            sentence = sentence.strip().lower()
+        else:
+            sentence = sentence.strip()
         seq = []
         for word in re.split(' ', sentence):
             idx = self.getIndex(word)
@@ -340,7 +344,10 @@ class Vocab(object):
         return seq
 
     def to_char_ngram_index_sequence(self, sentence):
-        sentence = sentence.strip().lower()
+        if self.tolower:
+            sentence = sentence.strip().lower()
+        else:
+            sentence = sentence.strip()
         seq = []
         words = re.split(' ', sentence)
         for word in words:
@@ -352,8 +359,12 @@ class Vocab(object):
         return seq
 
     def to_sparse_feature_sequence(self, sentence1, sentence2):
-        words1 = set(re.split(' ', sentence1.strip().lower()))
-        words2 = set(re.split(' ', sentence2.strip().lower()))
+        if self.tolower:
+            words1 = set(re.split(' ', sentence1.strip().lower()))
+            words2 = set(re.split(' ', sentence2.strip().lower()))
+        else:
+            words1 = set(re.split(' ', sentence1.strip()))
+            words2 = set(re.split(' ', sentence2.strip()))                
         intersection_words = words1.intersection(words2)
         seq = []
         for word in intersection_words:
@@ -364,7 +375,10 @@ class Vocab(object):
 
     def get_sentence_vector(self, sentence):
         sent_vec = np.zeros((self.word_dim,), dtype='float32')
-        sentence = sentence.strip().lower()
+        if self.tolower:
+            sentence = sentence.strip().lower()
+        else:
+            sentence = sentence.strip()
         total = 0.0
         for word in re.split(' ', sentence):
             cur_vec = self.getVector(word)
@@ -431,7 +445,8 @@ def collectVoc(trainpath):
     for line in inputFile:
         line = line.strip()
         label, sentence = re.split('\t', line)
-        sentence = sentence.lower()
+        if self.tolower:
+            sentence = sentence.lower()
         for word in re.split(' ', sentence):
             vocab.add(word)
     inputFile.close()
@@ -440,7 +455,10 @@ def collectVoc(trainpath):
 def collect_word_count(sentences, unk_num=1):
     word_count_map = {}
     for sentence in sentences:
-        sentence = sentence.strip().lower()
+        if self.tolower:
+            sentence = sentence.strip().lower()
+        else:
+            sentence = sentence.strip()
         for word in re.split(' ', sentence):
             cur_count = 0
             if word in word_count_map:
@@ -461,7 +479,10 @@ def collect_word_count(sentences, unk_num=1):
 def collect_word_count_with_max_vocab(sentences, max_vocab=600000):
     word_count_map = {}
     for sentence in sentences:
-        sentence = sentence.strip().lower()
+        if self.tolower:
+            sentence = sentence.strip().lower()
+        else:
+            sentence = sentence.strip()
         for word in re.split(' ', sentence):
             cur_count = 0
             if word in word_count_map:
@@ -486,7 +507,10 @@ def read_all_sentences(inpath):
     in_file = file(inpath, 'rt')
     for line in in_file:
         if line.startswith('<'): continue
-        line = line.strip().lower()
+        if self.tolower:
+            line = line.strip().lower()
+        else:
+            line = line.strip()
         sentences = re.split('\t', line)
         for sentence in sentences:
             sentence = sentence.strip()
@@ -498,7 +522,10 @@ def read_sparse_features(inpath, threshold=0.0):
     sparse_features = []
     in_file = file(inpath, 'rt')
     for line in in_file:
-        line = line.strip().lower()
+        if self.tolower:
+            line = line.strip().lower()
+        else:
+            line = line.strip()
         items = re.split('\t', line)
         if len(items)!=2: continue
         (sparse_feature, count) = items

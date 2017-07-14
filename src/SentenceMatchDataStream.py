@@ -33,6 +33,7 @@ def pad_3d_tensor(in_val, max_length1=None, max_length2=None, dtype=np.int32):
 
 
 
+
 class SentenceMatchDataStream(object):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
                  isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200,max_hyp_length=100):
@@ -208,3 +209,189 @@ class SentenceMatchDataStream(object):
         if i>= self.num_batch: return None
         return self.batches[i]
         
+class TriMatchDataStream(SentenceMatchDataStream):
+    def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
+                 isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200,max_hyp_length=100, max_choice_length=None,
+                 tolower=False):
+        if max_choice_length is None:
+            max_choice_length=max_hyp_length
+        instances = []
+        infile = open(inpath, 'rt',encoding='utf-8')
+        for line in infile:
+            line = line.strip()
+            if line.startswith('-'): continue
+            items = re.split("\t", line)
+            label = items[0]
+            if tolower:
+                sentence1 = items[1].lower()
+                sentence2 = items[2].lower()
+                sentence3 = items[3].lower()
+            else:                
+                sentence1 = items[1]
+                sentence2 = items[2]
+                sentence3 = items[3]
+            if label_vocab is not None: 
+                label_id = label_vocab.getIndex(label)
+                if label_id >= label_vocab.vocab_size: label_id = 0
+            else: 
+                label_id = int(label)
+            word_idx_1 = word_vocab.to_index_sequence(sentence1)
+            word_idx_2 = word_vocab.to_index_sequence(sentence2)
+            word_idx_3 = word_vocab.to_index_sequence(sentence3)
+            char_matrix_idx_1 = char_vocab.to_character_matrix(sentence1)
+            char_matrix_idx_2 = char_vocab.to_character_matrix(sentence2)
+            char_matrix_idx_3 = char_vocab.to_character_matrix(sentence3)
+            if len(word_idx_1)>max_sent_length: 
+                word_idx_1 = word_idx_1[:max_sent_length]
+                char_matrix_idx_1 = char_matrix_idx_1[:max_sent_length]
+            if len(word_idx_2)>max_hyp_length:
+                word_idx_2 = word_idx_2[:max_hyp_length]
+                char_matrix_idx_2 = char_matrix_idx_2[:max_hyp_length]
+            if len(word_idx_3)>max_choice_length:
+                word_idx_3 = word_idx_3[:max_choice_length]
+                char_matrix_idx_3 = char_matrix_idx_3[:max_choice_length]
+            POS_idx_1 = None
+            POS_idx_2 = None
+            if POS_vocab is not None:
+                POS_idx_1 = POS_vocab.to_index_sequence(items[3])
+                if len(POS_idx_1)>max_sent_length: POS_idx_1 = POS_idx_1[:max_sent_length]
+                POS_idx_2 = POS_vocab.to_index_sequence(items[4])
+                if len(POS_idx_2)>max_sent_length: POS_idx_2 = POS_idx_2[:max_sent_length]
+
+            NER_idx_1 = None
+            NER_idx_2 = None
+            if NER_vocab is not None:
+                NER_idx_1 = NER_vocab.to_index_sequence(items[5])
+                if len(NER_idx_1)>max_sent_length: NER_idx_1 = NER_idx_1[:max_sent_length]
+                NER_idx_2 = NER_vocab.to_index_sequence(items[6])
+                if len(NER_idx_2)>max_sent_length: NER_idx_2 = NER_idx_2[:max_sent_length]
+            
+
+            instances.append((label, sentence1, sentence2,sentence3, label_id, word_idx_1, word_idx_2,word_idx_3, 
+                        char_matrix_idx_1, char_matrix_idx_2, char_matrix_idx_3, POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2))
+        infile.close()
+
+        # sort instances based on sentence length
+        if isSort: instances = sorted(instances, key=lambda instance: (len(instance[5]), len(instance[6]),len(instance[6]))) # sort instances based on length
+        self.num_instances = len(instances)
+        
+        # distribute into different buckets
+        batch_spans = make_batches(self.num_instances, batch_size) 
+        self.batches = []
+        for batch_index, (batch_start, batch_end) in enumerate(batch_spans):
+            label_batch = []
+            sent1_batch = []
+            sent2_batch = []
+            sent3_batch = []
+            label_id_batch = []
+            word_idx_1_batch = []
+            word_idx_2_batch = []
+            word_idx_3_batch = []
+            char_matrix_idx_1_batch = []
+            char_matrix_idx_2_batch = []
+            char_matrix_idx_3_batch = []
+            sent1_length_batch = []
+            sent2_length_batch = []
+            sent3_length_batch = []
+            sent1_char_length_batch = []
+            sent2_char_length_batch = []
+            sent3_char_length_batch = []
+
+            POS_idx_1_batch = None
+            if POS_vocab is not None: POS_idx_1_batch = []
+            POS_idx_2_batch = None
+            if POS_vocab is not None: POS_idx_2_batch = []
+
+            NER_idx_1_batch = None
+            if NER_vocab is not None: NER_idx_1_batch = []
+            NER_idx_2_batch = None
+            if NER_vocab is not None: NER_idx_2_batch = []
+
+            for i in range(batch_start, batch_end):
+                (label, sentence1, sentence2,sentence3, label_id, word_idx_1, word_idx_2,word_idx_3, char_matrix_idx_1, char_matrix_idx_2,
+                        char_matrix_idx_3, POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2) = instances[i]
+                label_batch.append(label)
+                sent1_batch.append(sentence1)
+                sent2_batch.append(sentence2)
+                sent3_batch.append(sentence3)
+                label_id_batch.append(label_id)
+                word_idx_1_batch.append(word_idx_1)
+                word_idx_2_batch.append(word_idx_2)
+                word_idx_3_batch.append(word_idx_3)
+                char_matrix_idx_1_batch.append(char_matrix_idx_1)
+                char_matrix_idx_2_batch.append(char_matrix_idx_2)
+                char_matrix_idx_3_batch.append(char_matrix_idx_3)
+                sent1_length_batch.append(len(word_idx_1))
+                sent2_length_batch.append(len(word_idx_2))
+                sent3_length_batch.append(len(word_idx_3))
+                sent1_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_1])
+                sent2_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_2])
+                sent3_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_3])
+
+                if POS_vocab is not None: 
+                    POS_idx_1_batch.append(POS_idx_1)
+                    POS_idx_2_batch.append(POS_idx_2)
+
+                if NER_vocab is not None: 
+                    NER_idx_1_batch.append(NER_idx_1)
+                    NER_idx_2_batch.append(NER_idx_2)
+                
+                
+            cur_batch_size = len(label_batch)
+            if cur_batch_size ==0: continue
+
+            # padding
+            max_sent1_length = np.max(sent1_length_batch)
+            max_sent2_length = np.max(sent2_length_batch)
+            max_sent3_length = np.max(sent3_length_batch)
+
+
+            max_char_length1 = np.max([np.max(aa) for aa in sent1_char_length_batch])
+            if max_char_length1>max_char_per_word: max_char_length1=max_char_per_word
+
+            max_char_length2 = np.max([np.max(aa) for aa in sent2_char_length_batch])
+            if max_char_length2>max_char_per_word: max_char_length2=max_char_per_word
+            
+            max_char_length3 = np.max([np.max(aa) for aa in sent3_char_length_batch])
+            if max_char_length3>max_char_per_word: max_char_length3=max_char_per_word
+
+            label_id_batch = np.array(label_id_batch)
+            word_idx_1_batch = pad_2d_matrix(word_idx_1_batch, max_length=max_sent1_length)
+            word_idx_2_batch = pad_2d_matrix(word_idx_2_batch, max_length=max_sent2_length)
+            word_idx_3_batch = pad_2d_matrix(word_idx_3_batch, max_length=max_sent3_length)
+
+            char_matrix_idx_1_batch = pad_3d_tensor(char_matrix_idx_1_batch, max_length1=max_sent1_length, max_length2=max_char_length1)
+            char_matrix_idx_2_batch = pad_3d_tensor(char_matrix_idx_2_batch, max_length1=max_sent2_length, max_length2=max_char_length2)
+            char_matrix_idx_3_batch = pad_3d_tensor(char_matrix_idx_3_batch, max_length1=max_sent3_length, max_length2=max_char_length3)
+
+
+            sent1_length_batch = np.array(sent1_length_batch)
+            sent2_length_batch = np.array(sent2_length_batch)
+            sent3_length_batch = np.array(sent3_length_batch)
+
+            sent1_char_length_batch = pad_2d_matrix(sent1_char_length_batch, max_length=max_sent1_length)
+            sent2_char_length_batch = pad_2d_matrix(sent2_char_length_batch, max_length=max_sent2_length)
+            sent3_char_length_batch = pad_2d_matrix(sent3_char_length_batch, max_length=max_sent3_length)
+            
+            if POS_vocab is not None:
+                POS_idx_1_batch = pad_2d_matrix(POS_idx_1_batch, max_length=max_sent1_length)
+                POS_idx_2_batch = pad_2d_matrix(POS_idx_2_batch, max_length=max_sent2_length)
+            if NER_vocab is not None:
+                NER_idx_1_batch = pad_2d_matrix(NER_idx_1_batch, max_length=max_sent1_length)
+                NER_idx_2_batch = pad_2d_matrix(NER_idx_2_batch, max_length=max_sent2_length)
+                
+
+            self.batches.append((label_batch, sent1_batch, sent2_batch, sent3_batch, label_id_batch,
+                                 word_idx_1_batch, word_idx_2_batch, word_idx_3_batch,
+                                 char_matrix_idx_1_batch, char_matrix_idx_2_batch, char_matrix_idx_3_batch, 
+                                 sent1_length_batch, sent2_length_batch, sent3_length_batch,
+                                 sent1_char_length_batch, sent2_char_length_batch, sent3_char_length_batch,
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch))
+        
+        instances = None
+        self.num_batch = len(self.batches)
+        self.index_array = np.arange(self.num_batch)
+        self.isShuffle = isShuffle
+        if self.isShuffle: np.random.shuffle(self.index_array) 
+        self.isLoop = isLoop
+        self.cur_pointer = 0

@@ -3,17 +3,18 @@ import my_rnn
 import match_utils
 
 
-class SentenceMatchModelGraph(object):
+class TriMatchModelGraph(object):
     def __init__(self, num_classes, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None,
                  dropout_rate=0.5, learning_rate=0.001, optimize_type='adam',lambda_l2=1e-5, 
                  with_word=True, with_char=True, with_POS=True, with_NER=True, 
                  char_lstm_dim=20, context_lstm_dim=100, aggregation_lstm_dim=200, is_training=True,filter_layer_threshold=0.2,
                  MP_dim=50, context_layer_num=1,aggregation_layer_num=1, fix_word_vec=False,with_filter_layer=True, with_highway=False,
-                 with_lex_features=False,lex_dim=100,word_level_MP_dim=-1,sep_endpoint=False,end_model_combine=False,with_match_highway=False,
-                 with_aggregation_highway=False,highway_layer_num=1,with_lex_decomposition=False, lex_decompsition_dim=-1,
-                 with_left_match=True, with_right_match=True,
+                 word_level_MP_dim=-1,sep_endpoint=False,end_model_combine=False,with_match_highway=False,
+                 with_aggregation_highway=False,highway_layer_num=1,
+                 match_to_passage=True, match_to_question=False, match_to_choice=False, with_no_match=False,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
-                 num_options=-1, with_no_match=False):
+                 num_options=-1, verbose=False):
+
 
         # ======word representation layer======
         in_question_repres = []
@@ -185,13 +186,21 @@ class SentenceMatchModelGraph(object):
                 tf.get_variable_scope().reuse_variables()
                 in_choice_repres = match_utils.multi_highway_layer(in_choice_repres, input_dim, highway_layer_num)
         # ========Bilateral Matching=====
-        (match_representation, match_dim) = match_utils.bilateral_match_func2(in_question_repres, in_passage_repres,
-                        self.question_lengths, self.passage_lengths, question_mask, mask, MP_dim, input_dim, 
-                        with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
-                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
-                        with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
+        if verbose:
+            (match_representation, match_dim, self.matching_vectors) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+                        self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
+                        context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        with_left_match, with_right_match, with_no_match=with_no_match)
+                        match_to_passage, match_to_question, match_to_choice, with_no_match, debug=True)
+        else:
+            (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+                        self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
+                        context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
+                        with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
+                        match_to_passage, match_to_question, match_to_choice, with_no_match)
+
 
         #========Prediction Layer=========
         w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
@@ -584,6 +593,80 @@ class SentenceMatchModelGraph(object):
     def del_lr_rate(self):
         del self.__lr_rate
 
+
+    def get_choice_lengths(self):
+
+        return self.__choice_lengths
+
+    def get_in_choice_words(self):
+
+        return self.__in_choice_words
+
+    def get_in_choice_poss(self):
+
+        return self.__in_choice_POSs
+
+    def get_in_choice_ners(self):
+
+        return self.__in_choice_NERs
+
+    def get_choice_char_lengths(self):
+
+        return self.__choice_char_lengths
+
+    def get_in_choice_chars(self):
+
+        return self.__in_choice_chars
+
+    def set_choice_lengths(self, value):
+
+        self.__choice_lengths = value
+
+    def set_in_choice_words(self, value):
+
+        self.__in_choice_words = value
+
+    def set_in_choice_poss(self, value):
+
+        self.__in_choice_POSs = value
+
+    def set_in_choice_ners(self, value):
+
+        self.__in_choice_NERs = value
+
+    def set_choice_char_lengths(self, value):
+
+        self.__choice_char_lengths = value
+
+    def set_in_choice_chars(self, value):
+
+        self.__in_choice_chars = value
+
+    def del_choice_lengths(self):
+
+        del self.__choice_lengths
+
+    def del_in_choice_words(self):
+
+        del self.__in_choice_words
+
+    def del_in_choice_poss(self):
+
+        del self.__in_choice_POSs
+
+    def del_in_choice_ners(self):
+
+        del self.__in_choice_NERs
+
+    def del_choice_char_lengths(self):
+
+        del self.__choice_char_lengths
+
+    def del_in_choice_chars(self):
+
+        del self.__in_choice_chars
+
+
     question_lengths = property(get_question_lengths, set_question_lengths, del_question_lengths, "question_lengths's docstring")
     passage_lengths = property(get_passage_lengths, set_passage_lengths, del_passage_lengths, "passage_lengths's docstring")
     truth = property(get_truth, set_truth, del_truth, "truth's docstring")
@@ -609,5 +692,14 @@ class SentenceMatchModelGraph(object):
     lr_rate = property(get_lr_rate, set_lr_rate, del_lr_rate, "lr_rate's docstring")
     eval_correct = property(get_eval_correct, set_eval_correct, del_eval_correct, "eval_correct's docstring")
     predictions = property(get_predictions, set_predictions, del_predictions, "predictions's docstring")
+    
+    choice_lengths = property(get_choice_lengths, set_choice_lengths, del_choice_lengths, "choice_lengths's docstring")
+    in_choice_words = property(get_in_choice_words, set_in_choice_words, del_in_choice_words, "in_choice_words's docstring")
+    in_choice_POSs = property(get_in_choice_poss, set_in_choice_poss, del_in_choice_poss, "in_choice_POSs's docstring")
+    in_choice_NERs = property(get_in_choice_ners, set_in_choice_ners, del_in_choice_ners, "in_choice_NERs's docstring")
+    choice_char_lengths = property(get_choice_char_lengths, set_choice_char_lengths, del_choice_char_lengths, "choice_char_lengths's docstring")
+    in_choice_chars = property(get_in_choice_chars, set_in_choice_chars, del_in_choice_chars, "in_choice_chars's docstring")
+
+
     
     
