@@ -55,6 +55,9 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
     correct_tags = 0.0
     dataStream.reset()
     for batch_index in range(dataStream.get_num_batch()):
+        if batch_index % 10 ==0:
+            print(' %d/%d ' % (batch_index,dataStream.get_num_batch()), end="")
+            sys.stdout.flush()
         cur_dev_batch = dataStream.get_batch(batch_index)
         (label_batch, sent1_batch, sent2_batch, label_id_batch, word_idx_1_batch, word_idx_2_batch, 
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, sent1_length_batch, sent2_length_batch, 
@@ -286,7 +289,10 @@ def main(_):
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
          
-        sess = tf.Session()
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True 
+        sess = tf.Session(config=config)
+        
         sess.run(initializer)
         if has_pre_trained_model:
             print("Restoring model from " + best_path)

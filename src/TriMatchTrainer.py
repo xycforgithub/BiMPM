@@ -42,11 +42,11 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False,tolower=False):
         all_words.update(sentence2)
         all_words.update(sentence3)
         if with_POS: 
-            all_POSs.update(re.split("\\s+",items[3]))
             all_POSs.update(re.split("\\s+",items[4]))
+            all_POSs.update(re.split("\\s+",items[5]))
         if with_NER: 
-            all_NERs.update(re.split("\\s+",items[5]))
             all_NERs.update(re.split("\\s+",items[6]))
+            all_NERs.update(re.split("\\s+",items[7]))
     infile.close()
 
     all_chars = set()
@@ -73,11 +73,11 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                              POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch) = cur_batch
         feed_dict = {
                      valid_graph.get_truth(): label_id_batch, 
-                     valid_graph.get_question_lengths(): sent1_length_batch, 
-                     valid_graph.get_passage_lengths(): sent2_length_batch,
+                     valid_graph.get_passage_lengths(): sent1_length_batch, 
+                     valid_graph.get_question_lengths(): sent2_length_batch,
                      valid_graph.get_choice_lengths(): sent3_length_batch, 
-                     valid_graph.get_in_question_words(): word_idx_1_batch, 
-                     valid_graph.get_in_passage_words(): word_idx_2_batch, 
+                     valid_graph.get_in_passage_words(): word_idx_1_batch, 
+                     valid_graph.get_in_question_words(): word_idx_2_batch, 
                      valid_graph.get_in_choice_words(): word_idx_3_batch, 
 #                          valid_graph.get_question_char_lengths(): sent1_char_length_batch, 
 #                          valid_graph.get_passage_char_lengths(): sent2_char_length_batch, 
@@ -85,48 +85,57 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 #                          valid_graph.get_in_passage_chars(): char_matrix_idx_2_batch, 
                      }
         if char_vocab is not None:
-            feed_dict[valid_graph.get_question_char_lengths()] = sent1_char_length_batch
-            feed_dict[valid_graph.get_passage_char_lengths()] = sent2_char_length_batch
+            feed_dict[valid_graph.get_passage_char_lengths()] = sent1_char_length_batch
+            feed_dict[valid_graph.get_question_char_lengths()] = sent2_char_length_batch
             feed_dict[valid_graph.get_choice_char_lengths()] = sent3_char_length_batch
-            feed_dict[valid_graph.get_in_question_chars()] = char_matrix_idx_1_batch
-            feed_dict[valid_graph.get_in_passage_chars()] = char_matrix_idx_2_batch
+            feed_dict[valid_graph.get_in_passage_chars()] = char_matrix_idx_1_batch
+            feed_dict[valid_graph.get_in_question_chars()] = char_matrix_idx_2_batch
             feed_dict[valid_graph.get_in_choice_chars()] = char_matrix_idx_3_batch
 
         if POS_vocab is not None:
-            feed_dict[valid_graph.get_in_question_poss()] = POS_idx_1_batch
-            feed_dict[valid_graph.get_in_passage_poss()] = POS_idx_2_batch
+            feed_dict[valid_graph.get_in_passage_poss()] = POS_idx_1_batch
+            feed_dict[valid_graph.get_in_question_poss()] = POS_idx_2_batch
 
         if NER_vocab is not None:
-            feed_dict[valid_graph.get_in_question_ners()] = NER_idx_1_batch
-            feed_dict[valid_graph.get_in_passage_ners()] = NER_idx_2_batch
+            feed_dict[valid_graph.get_in_passage_ners()] = NER_idx_1_batch
+            feed_dict[valid_graph.get_in_question_ners()] = NER_idx_2_batch
 
         total_tags += len(label_batch)
+        to_eval=[valid_graph.get_eval_correct()]
+
+        if outpath is not None:
+            if mode == 'prediction':
+                to_eval.append(valid_graph.get_predictions())
+            else:
+                to_eval.append(valid_graph.get_prob())
+        eval_res=sess.run(to_eval,feed_dict=feed_dict)
+
         if use_options:
-            correct_tags+=sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)*4
+            correct_tags+=eval_res[0]*4
         else:
-            correct_tags += sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)
+            correct_tags += eval_res[0]
         if outpath is not None:
             if use_options:
                 if mode=='prediction':
-                    predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
+                    predictions = eval_res[1]
                     for i in range(len(label_batch)//num_options):
                         gt=np.argmax(label_batch[i*4:(i+1)*4])
                         outline=gt+"\t"+predictions[i]
                         outfile.write(outline)
                 else:
-                    probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+                    probs = eval_res[1]
                     for i in range(len(label_batch)):
                         outfile.write(output_probs_options(probs[i]) + "\n")
 
             else:
                 if mode =='prediction':
-                    predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
+                    predictions = eval_res[1]
                     for i in range(len(label_batch)):
                         outline = label_batch[i] + "\t" + label_vocab.getWord(predictions[i]) + "\t" + sent1_batch[i] + "\t" + sent2_batch[i] + "\n"
                         # outfile.write(outline.encode('utf-8'))
                         outfile.write(outline)
                 else:
-                    probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+                    probs = eval_res[1]
                     for i in range(len(label_batch)):
                         outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
 
@@ -281,7 +290,7 @@ def main(_):
             valid_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                  dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
                  lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
-                 aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=True, MP_dim=FLAGS.MP_dim, 
+                 aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
                  context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
                  fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
                  word_level_MP_dim=FLAGS.word_level_MP_dim,
@@ -300,8 +309,10 @@ def main(_):
 #             if not var.name.startswith("Model"): continue
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
-         
-        sess = tf.Session()
+
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True 
+        sess = tf.Session(config=config)
         sess.run(initializer)
         if has_pre_trained_model:
             print("Restoring model from " + best_path)
@@ -333,6 +344,9 @@ def main(_):
                 print(word_idx_1_batch)
                 print(word_idx_2_batch)
                 print(word_idx_3_batch)
+                print(sent1_batch)
+                print(sent2_batch)
+                print(sent3_batch)
                 input('check')
             feed_dict = {
                          train_graph.get_truth(): label_id_batch, 
@@ -374,6 +388,7 @@ def main(_):
                 print('correct=',correct)
                 for val in return_list[6:]:
                     print('this shape=',val.shape)
+                    print(val)
                 input('check')
             else:
                 _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)
@@ -396,12 +411,17 @@ def main(_):
 
                 # Evaluate against the validation set.
                 print('Validation Data Eval:')
+                if FLAGS.predict_val:
+                    outpath=path_prefix+'.iter%d' % (step) +'.probs'
+                else:
+                    outpath=None
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                    use_options=FLAGS.use_options)
+                    use_options=FLAGS.use_options,outpath=outpath, mode='prob')
                 print("Current accuracy is %.2f" % accuracy)
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
                     saver.save(sess, best_path)
+                    print('saving the current model.')
 
     print("Best accuracy on dev set is %.2f" % best_accuracy)
     # decoding
@@ -475,8 +495,8 @@ if __name__ == '__main__':
     parser.add_argument('--POS_dim', type=int, default=20, help='Number of dimension for POS embeddings.')
     parser.add_argument('--NER_dim', type=int, default=20, help='Number of dimension for NER embeddings.')
     parser.add_argument('--match_to_passage', default=False, help='Match on passage encodings.', action='store_true')
-    parser.add_argument('--match_to_question', default=False, help='Match on passage encodings.', action='store_true')
-    parser.add_argument('--match_to_choice', default=False, help='Match on passage encodings.', action='store_true')
+    parser.add_argument('--match_to_question', default=False, help='Match on question encodings.', action='store_true')
+    parser.add_argument('--match_to_choice', default=False, help='Match on choice encodings.', action='store_true')
     parser.add_argument('--wo_full_match', default=False, help='Without full matching.', action='store_true')
     parser.add_argument('--wo_maxpool_match', default=False, help='Without maxpooling matching', action='store_true')
     parser.add_argument('--wo_attentive_match', default=False, help='Without attentive matching', action='store_true')
@@ -488,6 +508,8 @@ if __name__ == '__main__':
     parser.add_argument('--with_no_match',default=False,help='Does not perform any matching',action='store_true')
     parser.add_argument('--display_every',default=100,help='Display progress every X step.')
     parser.add_argument('--use_lower_letter',default=False,help='Convert all words to lower case.')
+    parser.add_argument('--predict_val',default=False,help='Give probs to dev set after each epoch.')
+
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()

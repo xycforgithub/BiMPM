@@ -253,17 +253,17 @@ class TriMatchDataStream(SentenceMatchDataStream):
             POS_idx_1 = None
             POS_idx_2 = None
             if POS_vocab is not None:
-                POS_idx_1 = POS_vocab.to_index_sequence(items[3])
+                POS_idx_1 = POS_vocab.to_index_sequence(items[4])
                 if len(POS_idx_1)>max_sent_length: POS_idx_1 = POS_idx_1[:max_sent_length]
-                POS_idx_2 = POS_vocab.to_index_sequence(items[4])
+                POS_idx_2 = POS_vocab.to_index_sequence(items[5])
                 if len(POS_idx_2)>max_sent_length: POS_idx_2 = POS_idx_2[:max_sent_length]
 
             NER_idx_1 = None
             NER_idx_2 = None
             if NER_vocab is not None:
-                NER_idx_1 = NER_vocab.to_index_sequence(items[5])
+                NER_idx_1 = NER_vocab.to_index_sequence(items[6])
                 if len(NER_idx_1)>max_sent_length: NER_idx_1 = NER_idx_1[:max_sent_length]
-                NER_idx_2 = NER_vocab.to_index_sequence(items[6])
+                NER_idx_2 = NER_vocab.to_index_sequence(items[7])
                 if len(NER_idx_2)>max_sent_length: NER_idx_2 = NER_idx_2[:max_sent_length]
             
 
@@ -272,7 +272,7 @@ class TriMatchDataStream(SentenceMatchDataStream):
         infile.close()
 
         # sort instances based on sentence length
-        if isSort: instances = sorted(instances, key=lambda instance: (len(instance[5]), len(instance[6]),len(instance[6]))) # sort instances based on length
+        if isSort: instances = sorted(instances, key=lambda instance: (len(instance[5]), len(instance[6]),len(instance[7]))) # sort instances based on length
         self.num_instances = len(instances)
         
         # distribute into different buckets
