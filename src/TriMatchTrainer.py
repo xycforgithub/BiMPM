@@ -64,6 +64,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
     for batch_index in range(dataStream.get_num_batch()):
         if batch_index % 10 ==0:
             print(' %d/%d ' % (batch_index,dataStream.get_num_batch()), end="")
+            sys.stdout.flush()
         cur_batch = dataStream.nextBatch()
         (label_batch, sent1_batch, sent2_batch, sent3_batch, label_id_batch,
                              word_idx_1_batch, word_idx_2_batch, word_idx_3_batch,
@@ -183,7 +184,7 @@ def main(_):
     POS_vocab = None
     NER_vocab = None
     print('best path:', best_path)
-    if os.path.exists(best_path+'.data-00000-of-00001'):
+    if os.path.exists(best_path+'.data-00000-of-00001') and not(FLAGS.create_new_model):
         print('Using pretrained model')
         has_pre_trained_model = True
         label_vocab = Vocab(label_path, fileformat='txt2',tolower=tolower)
@@ -280,7 +281,8 @@ def main(_):
                  match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
+                 matching_option=FLAGS.matching_option)
 
 
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
@@ -299,16 +301,18 @@ def main(_):
                  match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match,matching_option=FLAGS.matching_option)
 
                 
         initializer = tf.global_variables_initializer()
         vars_ = {}
         for var in tf.global_variables():
+            # print(var.name,var.get_shape().as_list())
             if "word_embedding" in var.name: continue
 #             if not var.name.startswith("Model"): continue
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
+        # input('check')
 
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True 
@@ -387,8 +391,12 @@ def main(_):
                 print('logits=',logits)
                 print('correct=',correct)
                 for val in return_list[6:]:
+                    if isinstance(val,list):
+                        print('list len ',len(val))
+                        for objj in val:
+                            print('this shape=',val.shape)
                     print('this shape=',val.shape)
-                    print(val)
+                    # print(val)
                 input('check')
             else:
                 _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)
@@ -509,6 +517,8 @@ if __name__ == '__main__':
     parser.add_argument('--display_every',default=100,help='Display progress every X step.')
     parser.add_argument('--use_lower_letter',default=False,help='Convert all words to lower case.')
     parser.add_argument('--predict_val',default=False,help='Give probs to dev set after each epoch.')
+    parser.add_argument('--matching_option',type=int,default=0,help='TriMatch Configuration.')
+    parser.add_argument('--create_new_model',default=False,help='Create new model regardless of the old one.',action='store_true')
 
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])

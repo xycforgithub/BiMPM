@@ -69,6 +69,9 @@ if __name__ == '__main__':
     max_choice_length=None
     if hasattr(FLAGS, 'max_choice_length'): max_choice_length = FLAGS.max_choice_length
 
+    matching_option=0
+    if hasattr(FLAGS,'matching_option'): matching_option=FLAGS.matching_option
+
 
     if args.batch_size is not None:
         FLAGS.batch_size=args.batch_size
@@ -120,7 +123,7 @@ if __name__ == '__main__':
                  match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, matching_option=matching_option)
 
 #             saver = tf.train.Saver()
         # remove word _embedding

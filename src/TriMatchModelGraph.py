@@ -13,7 +13,7 @@ class TriMatchModelGraph(object):
                  with_aggregation_highway=False,highway_layer_num=1,
                  match_to_passage=True, match_to_question=False, match_to_choice=False, with_no_match=False,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
-                 num_options=-1, verbose=False):
+                 num_options=-1, verbose=False, matching_option=0):
 
 
         # ======word representation layer======
@@ -192,14 +192,14 @@ class TriMatchModelGraph(object):
                         context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        match_to_passage, match_to_question, match_to_choice, with_no_match, debug=True)
+                        match_to_passage, match_to_question, match_to_choice, with_no_match, debug=True, matching_option=matching_option)
         else:
             (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
                         context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        match_to_passage, match_to_question, match_to_choice, with_no_match)
+                        match_to_passage, match_to_question, match_to_choice, with_no_match,matching_option=matching_option)
 
 
         #========Prediction Layer=========
@@ -251,6 +251,7 @@ class TriMatchModelGraph(object):
             self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
 
             correct = tf.nn.in_top_k(logits, self.truth, 1)
+            self.correct=correct
         self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
         self.predictions = tf.arg_max(self.prob, 1)
 

@@ -2,19 +2,20 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-mode='dev'
+mode='train'
 # n_ans='same'
 concat_mode='concat' # replace or concat
 shuffle=False
-shuffle_questions=False
+shuffle_questions=True
 choice_num=4
 verbose=False
 true_repeat=1
 middle_only=True
 high_only=False
-sort=False
+sort=True
 triMatch=True # set concat_mode=concat to use triMatch
 partData=False
+largePartData=True
 if triMatch:
 	assert concat_mode=='concat'
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')
@@ -39,6 +40,9 @@ if sort:
 	out_filename+='_sorted'
 if partData:
 	out_filename+='_part'
+elif largePartData:
+	out_filename+='_lpart'
+	assert sort
 out_filename+='.tsv'
 
 output_file=open(out_filename,'w',encoding='utf-8')
@@ -149,6 +153,7 @@ for outid in tqdm(range(len(all_data['data']))):
 			thishyp=token_to_text(this_token)
 			hyps.append(thishyp)
 			ids.append(data['id'])
+			choices.append('')
 			if aid==data['answer']:
 				labels.append(1)
 				for rep in range(true_repeat-1):
@@ -156,6 +161,7 @@ for outid in tqdm(range(len(all_data['data']))):
 					hyps.append(hyps[-1])
 					ids.append(ids[-1])
 					labels.append(1)
+					choices.append('')
 					if verbose:
 						print('label=%d, text=%s, hyp=%s' % (labels[-1],texts[-1],hyps[-1]))
 						input('check')
@@ -186,7 +192,11 @@ else:
 	perm=range(len(hyps))
 
 tabcount=0
-for iidd in range(len(hyps)):
+if largePartData:
+	startpoint=len(hyps)-100
+else:
+	startpoint=0
+for iidd in range(startpoint,len(hyps)):
 	i=perm[iidd]
 	if '\t' in texts[i] or '\t' in hyps[i] or '\t' in choices[i]:
 		tabcount+=1
