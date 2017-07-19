@@ -201,7 +201,7 @@ class TriMatchModelGraph(object):
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match,matching_option=matching_option)
 
-
+        print('check: match_dim=',match_dim)
         #========Prediction Layer=========
         w_0 = tf.get_variable("w_0", [match_dim, match_dim/2], dtype=tf.float32)
         b_0 = tf.get_variable("b_0", [match_dim/2], dtype=tf.float32)

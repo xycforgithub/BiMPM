@@ -13,7 +13,7 @@ class SentenceMatchModelGraph(object):
                  with_aggregation_highway=False,highway_layer_num=1,with_lex_decomposition=False, lex_decompsition_dim=-1,
                  with_left_match=True, with_right_match=True,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
-                 num_options=-1, with_no_match=False):
+                 num_options=-1, with_no_match=False, verbose=False):
 
         # ======word representation layer======
         in_question_repres = []
@@ -154,7 +154,25 @@ class SentenceMatchModelGraph(object):
                 in_passage_repres = match_utils.multi_highway_layer(in_passage_repres, input_dim, highway_layer_num)
         
         # ========Bilateral Matching=====
-        (match_representation, match_dim) = match_utils.bilateral_match_func2(in_question_repres, in_passage_repres,
+        if (not with_left_match) or (not with_right_match):
+            if verbose:
+                (match_representation, match_dim, self.all_repre) = match_utils.bilateral_match_func1(in_question_repres, in_passage_repres,
+                        self.question_lengths, self.passage_lengths, question_mask, mask, MP_dim, input_dim, 
+                        with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
+                        with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
+                        with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
+                        with_left_match, with_right_match, verbose=verbose)
+            else:
+                (match_representation, match_dim) = match_utils.bilateral_match_func1(in_question_repres, in_passage_repres,
+                        self.question_lengths, self.passage_lengths, question_mask, mask, MP_dim, input_dim, 
+                        with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
+                        with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
+                        with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
+                        with_left_match, with_right_match, verbose=verbose)
+        else:
+            (match_representation, match_dim) = match_utils.bilateral_match_func2(in_question_repres, in_passage_repres,
                         self.question_lengths, self.passage_lengths, question_mask, mask, MP_dim, input_dim, 
                         with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,

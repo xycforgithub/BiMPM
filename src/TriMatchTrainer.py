@@ -113,6 +113,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
         if use_options:
             correct_tags+=eval_res[0]*4
+            # print('this correct tag=',eval_res[0])
         else:
             correct_tags += eval_res[0]
         if outpath is not None:
@@ -120,13 +121,15 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                 if mode=='prediction':
                     predictions = eval_res[1]
                     for i in range(len(label_batch)//num_options):
-                        gt=np.argmax(label_batch[i*4:(i+1)*4])
+                        gt=str(np.argmax(label_id_batch[i*4:(i+1)*4]))
                         outline=gt+"\t"+predictions[i]
                         outfile.write(outline)
                 else:
                     probs = eval_res[1]
-                    for i in range(len(label_batch)):
-                        outfile.write(output_probs_options(probs[i]) + "\n")
+                    for i in range(len(label_batch)//num_options):
+                        # import pdb
+                        # pdb.set_trace()  
+                        outfile.write(str(np.argmax(label_id_batch[i*4:(i+1)*4]))+"\t"+output_probs_options(probs[i]) + "\n")
 
             else:
                 if mode =='prediction':
@@ -409,7 +412,7 @@ def main(_):
                 sub_loss_counter=0.0
 
             # Save a checkpoint and evaluate the model periodically.
-            if (step + 1) % trainDataStream.get_num_batch() == 0 or (step + 1) == max_steps:
+            if (step + 1) % trainDataStream.get_num_batch() == 99999 or (step + 1) == max_steps:
                 print()
                 # Print status to stdout.
                 duration = time.time() - start_time
@@ -441,7 +444,7 @@ def main(_):
             valid_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                  dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
                  lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
-                 aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=True, MP_dim=FLAGS.MP_dim, 
+                 aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
                  context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
                  fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
                  word_level_MP_dim=FLAGS.word_level_MP_dim,
@@ -450,7 +453,7 @@ def main(_):
                  match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, matching_option=FLAGS.matching_option)
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
@@ -516,7 +519,7 @@ if __name__ == '__main__':
     parser.add_argument('--with_no_match',default=False,help='Does not perform any matching',action='store_true')
     parser.add_argument('--display_every',default=100,help='Display progress every X step.')
     parser.add_argument('--use_lower_letter',default=False,help='Convert all words to lower case.')
-    parser.add_argument('--predict_val',default=False,help='Give probs to dev set after each epoch.')
+    parser.add_argument('--predict_val',default=False,help='Give probs to dev set after each epoch.',action='store_true')
     parser.add_argument('--matching_option',type=int,default=0,help='TriMatch Configuration.')
     parser.add_argument('--create_new_model',default=False,help='Create new model regardless of the old one.',action='store_true')
 

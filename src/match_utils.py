@@ -402,7 +402,7 @@ def unidirectional_matching(in_question_repres, in_passage_repres,question_lengt
                             question_mask, mask, MP_dim, input_dim, with_filter_layer, context_layer_num,
                             context_lstm_dim,is_training,dropout_rate,with_match_highway,aggregation_layer_num,
                             aggregation_lstm_dim,highway_layer_num,with_aggregation_highway,with_lex_decomposition, lex_decompsition_dim,
-                            with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True):
+                            with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, verbose=False):
     # ======Filter layer======
     cosine_matrix = cal_relevancy_matrix(in_question_repres, in_passage_repres)
     cosine_matrix = mask_relevancy_matrix(cosine_matrix, question_mask, mask)
@@ -523,16 +523,17 @@ def unidirectional_matching(in_question_repres, in_passage_repres,question_lengt
             aggregation_representation = tf.reshape(aggregation_representation, [1, batch_size, aggregation_dim])
             aggregation_representation = multi_highway_layer(aggregation_representation, aggregation_dim, highway_layer_num)
             aggregation_representation = tf.reshape(aggregation_representation, [batch_size, aggregation_dim])
-
+    if verbose:
+        return (aggregation_representation, aggregation_dim, all_question_aware_representatins)
     return (aggregation_representation, aggregation_dim)
         
 def bilateral_match_func1(in_question_repres, in_passage_repres,
                         question_lengths, passage_lengths, question_mask, mask, MP_dim, input_dim, 
-                        context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
                         with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True,
-                        with_left_match=True, with_right_match=True):
+                        with_left_match=True, with_right_match=True, verbose=False):
     init_scale = 0.01
     initializer = tf.random_uniform_initializer(-init_scale, init_scale)
     match_representation = []
@@ -543,31 +544,42 @@ def bilateral_match_func1(in_question_repres, in_passage_repres,
         reuse_match_params = True
         with tf.name_scope("match_passsage"):
             with tf.variable_scope("MP-Match", reuse=None, initializer=initializer):
-                (passage_match_representation, passage_match_dim) = unidirectional_matching(in_question_repres, in_passage_repres,
+                ret_list = unidirectional_matching(in_question_repres, in_passage_repres,
                             question_lengths, passage_lengths, question_mask, mask, MP_dim, input_dim, 
                             with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                             with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                             with_aggregation_highway,with_lex_decomposition,lex_decompsition_dim,
                             with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                             with_attentive_match=with_attentive_match,
-                            with_max_attentive_match=with_max_attentive_match)
+                            with_max_attentive_match=with_max_attentive_match, verbose=verbose)
+                if verbose:
+                    (passage_match_representation, passage_match_dim, all_repre) = ret_list
+                else:
+                    (passage_match_representation, passage_match_dim) = ret_list
                 match_representation.append(passage_match_representation)
                 match_dim += passage_match_dim
     if with_right_match:
         with tf.name_scope("match_question"):
             with tf.variable_scope("MP-Match", reuse=reuse_match_params, initializer=initializer):
-                (question_match_representation, question_match_dim) = unidirectional_matching(in_passage_repres, in_question_repres, 
+                ret_list = unidirectional_matching(in_passage_repres, in_question_repres, 
                             passage_lengths, question_lengths, mask, question_mask, MP_dim, input_dim, 
                             with_filter_layer, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                             with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                             with_aggregation_highway, with_lex_decomposition,lex_decompsition_dim,
                             with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                             with_attentive_match=with_attentive_match,
-                            with_max_attentive_match=with_max_attentive_match)
+                            with_max_attentive_match=with_max_attentive_match, verbose=verbose)
+                if verbose:
+                    (question_match_representation, question_match_dim, all_repre) = ret_list
+                else:
+                    (question_match_representation, question_match_dim) = ret_list
                 match_representation.append(question_match_representation)
                 match_dim += question_match_dim
     match_representation = tf.concat(match_representation, 1)
-    return (match_representation, match_dim)
+    if verbose:
+        return (match_representation, match_dim, all_repre)
+    else:
+        return (match_representation, match_dim)
 
 
 
@@ -771,7 +783,7 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         with_max_attentive_match=True, match_to_passage=True, match_to_question=True, match_to_choice=True, with_no_match=False,
                         debug=False,matching_option=0):
 
-
+    print('trilateral match ',matching_option)
     qp_cosine_matrix = cal_relevancy_matrix(in_question_repres, in_passage_repres) # [batch_size, passage_len, question_len]
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)
     qp_cosine_matrix_transpose = tf.transpose(qp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
@@ -792,7 +804,9 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
         if match_to_choice:
             matched_choice_representations = []
             matched_choice_dim = 0
-
+        match_to_passage=True
+        match_to_question=False
+        match_to_choice=False
 
         # max and mean pooling at word level
         if match_to_passage:
@@ -831,9 +845,29 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
         cp_matched_repre.append(tf.reduce_mean(cp_cosine_matrix_transpose, axis=2,keep_dims=True))
         matched_cp_dim+=2
         matched_qp_dim+=2
+    elif matching_option in [4,5,6]:
+        pq_matched_repre=[]
+        matched_pq_dim=0
+        pq_matched_repre.append(tf.reduce_max(qp_cosine_matrix_transpose, axis=2,keep_dims=True))
+        pq_matched_repre.append(tf.reduce_mean(qp_cosine_matrix_transpose, axis=2,keep_dims=True))
+        matched_pq_dim+=2
+        
+        if matching_option in [4,5]:
+            qp_matched_repre=[]
+            matched_qp_dim=0
+            qp_matched_repre.append(tf.reduce_max(qp_cosine_matrix, axis=2,keep_dims=True))
+            qp_matched_repre.append(tf.reduce_mean(qp_cosine_matrix, axis=2,keep_dims=True))
+            matched_qp_dim+=2
+        
+        if matching_option in [4,6]:
+            pc_matched_repre=[]
+            matched_pc_dim=0
+            pc_matched_repre.append(tf.reduce_max(cp_cosine_matrix_transpose, axis=2,keep_dims=True))
+            pc_matched_repre.append(tf.reduce_mean(cp_cosine_matrix_transpose, axis=2,keep_dims=True))
+            matched_pc_dim+=2
 
 
-
+    # print('here')
     if MP_dim>0:
         if with_max_attentive_match:
             # max_att word level
@@ -860,12 +894,22 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
 
                 add_max_attentive(cp_matched_repre,in_passage_repres,in_choice_repres,cp_cosine_matrix_transpose,"pc_word_max_att_decomp_params")
                 matched_cp_dim+=MP_dim
+            elif matching_option in [4,5,6]:
+                add_max_attentive(pq_matched_repre,in_passage_repres,in_question_repres,qp_cosine_matrix_transpose,"pq_word_max_att_decomp_params")
+                matched_pq_dim+=MP_dim
+                if matching_option in [4,5]:
+                    add_max_attentive(qp_matched_repre,in_question_repres,in_passage_repres,qp_cosine_matrix,"qp_word_max_att_decomp_params")
+                    matched_qp_dim+=MP_dim
+                if matching_option in [4,6]:
+                    add_max_attentive(pc_matched_repre,in_passage_repres,in_choice_repres,cp_cosine_matrix_transpose,"pc_word_max_att_decomp_params")
+                    matched_pc_dim+=MP_dim
+
 
             # add_max_attentive(matched_question_representations,in_passage_repres,in_question_repres,qp_cosine_matrix_transpose,"pa_word_max_att_decomp_params")
             # matched_question_dim+=MP_dim
 
 
-
+    # print('here')
     with tf.variable_scope('context_MP_matching'):
         for i in range(context_layer_num): # support multiple context layer
             with tf.variable_scope('layer-{}'.format(i)):
@@ -918,7 +962,7 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                     # passage_aware_representatins.append(passage_context_representation_fw)
                     # passage_aware_representatins.append(passage_context_representation_bw)
                 else:
-
+                    # First step matching
                     # Multi-perspective matching
                     if matching_option in [0,1,2]:
                         with tf.variable_scope('qp_MP_matching'):
@@ -949,11 +993,13 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                                 cp_matching_vectors_bw=tf.concat(cp_matching_vectors_bw,2)
                         if matching_option in [0,1]:
                             matching_tensors=[passage_context_representation_fw,passage_context_representation_bw,
-                             question_context_representation_fw, choice_context_representation_fw, 
+                             question_context_representation_fw, question_context_representation_fw, 
+                             choice_context_representation_fw, choice_context_representation_bw, 
                              qp_matching_vectors_fw,qp_matching_vectors_bw,cp_matching_vectors_fw,cp_matching_vectors_bw]
                         else:
                             matching_tensors=[passage_context_representation_fw,passage_context_representation_bw, 
-                                question_context_representation_fw,choice_context_representation_fw]
+                                question_context_representation_fw,question_context_representation_bw, 
+                                choice_context_representation_fw,choice_context_representation_bw]
                     elif matching_option==3:
                         with tf.variable_scope('pq_MP_matching'):
                             (qp_matching_vectors_fw, qp_matching_vectors_bw, qp_matching_fw_dim, qp_matching_bw_dim) = \
@@ -980,8 +1026,57 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                             cp_matching_vectors_fw=tf.concat(cp_matching_vectors_fw,2)
                             cp_matching_vectors_bw=tf.concat(cp_matching_vectors_bw,2)
                             matching_tensors=[passage_context_representation_fw,passage_context_representation_bw,
-                             question_context_representation_fw, choice_context_representation_fw, 
+                             question_context_representation_fw, question_context_representation_bw, 
+                             choice_context_representation_fw, choice_context_representation_bw, 
                              qp_matching_vectors_fw,qp_matching_vectors_bw,cp_matching_vectors_fw,cp_matching_vectors_bw]
+                    elif matching_option in [4,5,6]:
+                        matching_tensors=[passage_context_representation_fw,passage_context_representation_bw, 
+                                    question_context_representation_fw,question_context_representation_bw, 
+                                    choice_context_representation_fw,choice_context_representation_bw]
+                        if matching_option in [4,5]:
+                            with tf.variable_scope('qp_MP_matching'):
+                                (qp_matching_vectors_fw, qp_matching_vectors_bw, qp_matching_fw_dim, qp_matching_bw_dim) = \
+                                        match_passage_with_question_direct(passage_context_representation_fw, 
+                                            passage_context_representation_bw, mask,
+                                            question_context_representation_fw, question_context_representation_bw,question_mask,
+                                            MP_dim, context_lstm_dim, scope=None,
+                                            with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                            with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match,
+                                            with_direction=True)
+                                if matching_option==5:
+                                    qp_matching_vectors_fw=tf.concat(qp_matching_vectors_fw,2)
+                                    qp_matching_vectors_bw=tf.concat(qp_matching_vectors_bw,2)
+                                    matching_tensors.append(qp_matching_vectors_fw)                        
+                                    matching_tensors.append(qp_matching_vectors_bw)                        
+                        with tf.variable_scope('pq_MP_matching'):
+                            (pq_matching_vectors_fw, pq_matching_vectors_bw, pq_matching_fw_dim, pq_matching_bw_dim) = \
+                                    match_passage_with_question_direct(question_context_representation_fw, 
+                                        question_context_representation_bw,question_mask,
+                                        passage_context_representation_fw, passage_context_representation_bw, mask,                                        
+                                        MP_dim, context_lstm_dim, scope=None,
+                                        with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                        with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match,
+                                        with_direction=True)
+                            if matching_option==5:
+                                pq_matching_vectors_fw=tf.concat(pq_matching_vectors_fw,2)
+                                pq_matching_vectors_bw=tf.concat(pq_matching_vectors_bw,2)
+                                matching_tensors.append(pq_matching_vectors_fw) 
+                                matching_tensors.append(pq_matching_vectors_bw) 
+                        with tf.variable_scope('pc_MP_matching'):
+                            (pc_matching_vectors_fw, pc_matching_vectors_bw, pc_matching_fw_dim, pc_matching_bw_dim) = \
+                                    match_passage_with_question_direct(choice_context_representation_fw, 
+                                        choice_context_representation_bw,choice_mask,
+                                        passage_context_representation_fw, passage_context_representation_bw, mask,                                        
+                                        MP_dim, context_lstm_dim, scope=None,
+                                        with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                        with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match,
+                                        with_direction=True)
+                            if matching_option==5:
+                                pc_matching_vectors_fw=tf.concat(pc_matching_vectors_fw,2)
+                                pc_matching_vectors_bw=tf.concat(pc_matching_vectors_bw,2)
+                                matching_tensors.append(pc_matching_vectors_fw)
+                                matching_tensors.append(pc_matching_vectors_bw)
+                    # Post matching
                     if matching_option in [0,1]:
                         # Multi-perspective matching
                         with tf.variable_scope('qc_post_MP_matching'):
@@ -1012,10 +1107,10 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                                 cp_matched_repre.extend(matching_vectors)
                                 matched_cp_dim += matching_dim
                     elif matching_option==2:
-                        qp_matched_repre=qp_matching_vectors_fw+qp_matching_vectors_bw
-                        matched_qp_dim = qp_matching_fw_dim+qp_matching_bw_dim
-                        cp_matched_repre=cp_matching_vectors_fw+cp_matching_vectors_bw
-                        matched_cp_dim = cp_matching_fw_dim+cp_matching_bw_dim
+                        qp_matched_repre.extend(qp_matching_vectors_fw+qp_matching_vectors_bw)
+                        matched_qp_dim += qp_matching_fw_dim+qp_matching_bw_dim
+                        cp_matched_repre.extend(cp_matching_vectors_fw+cp_matching_vectors_bw)
+                        matched_cp_dim += cp_matching_fw_dim+cp_matching_bw_dim
                     elif matching_option==3:
                         # Multi-perspective matching
                         with tf.variable_scope('qc_post_MP_matching'):
@@ -1037,7 +1132,36 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                                         with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
                             cp_matched_repre.extend(matching_vectors)
                             matched_cp_dim += matching_dim
-                    
+                    elif matching_option in [4,6]:
+                        if matching_option==4:
+                            qp_matched_repre.extend(qp_matching_vectors_fw+qp_matching_vectors_bw)
+                            matched_qp_dim+= qp_matching_fw_dim+qp_matching_bw_dim
+                        pq_matched_repre.extend(pq_matching_vectors_fw+pq_matching_vectors_bw)
+                        matched_pq_dim+= pq_matching_fw_dim+pq_matching_bw_dim
+                        pc_matched_repre.extend(pc_matching_vectors_fw+pc_matching_vectors_bw)
+                        matched_pc_dim+= pc_matching_fw_dim+pc_matching_bw_dim
+                    elif matching_option==5:
+                        # Multi-perspective matching
+                        with tf.variable_scope('cp_post_MP_matching'):
+                            (matching_vectors, matching_dim) = match_passage_with_question_direct(qp_matching_vectors_fw, 
+                                        qp_matching_vectors_bw, mask,
+                                        pc_matching_vectors_fw, pc_matching_vectors_bw, choice_mask, 
+                                        MP_dim, pc_matching_fw_dim, scope=None,
+                                        with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                        with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
+                            qp_matched_repre.extend(matching_vectors)
+                            matched_qp_dim += matching_dim
+                        # Multi-perspective matching
+                        with tf.variable_scope('cq_post_MP_matching'):
+                            (matching_vectors, matching_dim) = match_passage_with_question_direct(pq_matching_vectors_fw, 
+                                        pq_matching_vectors_bw, question_mask,
+                                        pc_matching_vectors_fw, pc_matching_vectors_bw, choice_mask,
+                                        MP_dim, pc_matching_fw_dim, scope=None,
+                                        with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
+                                        with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
+                            pq_matched_repre.extend(matching_vectors)
+                            matched_pq_dim += matching_dim                        
+    # print('here333')
     if matching_option==0:
         matching_tensors.extend(matched_passage_representations)
         matched_passage_representations = tf.concat(matched_passage_representations, 2) # [batch_size, passage_len, dim]
@@ -1093,33 +1217,117 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
         if debug:
             return (aggregation_representation,aggregation_dim,matching_tensors)
         return (aggregation_representation, aggregation_dim)
-    elif matching_option in [1,2,3]:
-        matching_tensors.extend(qp_matched_repre)
-        matching_tensors.extend(cp_matched_repre)
-        left_repres=tf.concat(qp_matched_repre,2)
-        right_repres = tf.concat(cp_matched_repre,2)
-        matching_tensors.append(left_repres)
-        matching_tensors.append(right_repres)
-        left_dim=matched_qp_dim
-        right_dim=matched_cp_dim
+    else:
+        if matching_option in [1,2,3]:
+            matching_tensors.extend(qp_matched_repre)
+            matching_tensors.extend(cp_matched_repre)
+            left_repres=tf.concat(qp_matched_repre,2)
+            right_repres = tf.concat(cp_matched_repre,2)
+            matching_tensors.append(left_repres)
+            matching_tensors.append(right_repres)
+            left_dim=matched_qp_dim
+            right_dim=matched_cp_dim
+            print('left dim=',left_dim,'right dim=',right_dim)
 
-        if is_training:
-            left_repres = tf.nn.dropout(left_repres, (1 - dropout_rate))
-            right_repres = tf.nn.dropout(right_repres, (1 - dropout_rate))
-        else:
-            left_repres = tf.multiply(left_repres, (1 - dropout_rate))
-            right_repres = tf.multiply(right_repres, (1 - dropout_rate))
+            if is_training:
+                left_repres = tf.nn.dropout(left_repres, (1 - dropout_rate))
+                right_repres = tf.nn.dropout(right_repres, (1 - dropout_rate))
+            else:
+                left_repres = tf.multiply(left_repres, (1 - dropout_rate))
+                right_repres = tf.multiply(right_repres, (1 - dropout_rate))
+                
+            # ======Highway layer======
+            if with_match_highway:
+                with tf.variable_scope("left_matching_highway"):
+                    left_repres = multi_highway_layer(left_repres, left_dim,highway_layer_num)
+                with tf.variable_scope("right_matching_highway"):
+                    right_repres = multi_highway_layer(right_repres, right_dim,highway_layer_num)
+
+            aggregation_inputs=[left_repres,right_repres]
+            aggregation_dims = [left_dim, right_dim]
+            if matching_option in [1,2]:
+                aggregation_lengths=[passage_lengths,passage_lengths]
+            else:
+                aggregation_lengths=[question_lengths,choice_lengths]
+        elif matching_option in [4,6]:
+            print('aggregate')
+            if matching_option==4:
+                matching_tensors.extend(qp_matched_repre)
+                repres_1=tf.concat(qp_matched_repre,2)
+                matching_tensors.append(repres_1)
+                rep1_dim=matched_qp_dim
+                if is_training:
+                    repres_1 = tf.nn.dropout(repres_1, (1 - dropout_rate))
+                else:
+                    repres_1 = tf.multiply(repres_1, (1 - dropout_rate))
+            else:
+                rep1_dim=0
             
-        # ======Highway layer======
-        if with_match_highway:
-            with tf.variable_scope("left_matching_highway"):
-                left_repres = multi_highway_layer(left_repres, left_dim,highway_layer_num)
-            with tf.variable_scope("right_matching_highway"):
-                right_repres = multi_highway_layer(right_repres, right_dim,highway_layer_num)
+            matching_tensors.extend(pq_matched_repre)
+            matching_tensors.extend(pc_matched_repre)
+            repres_2=tf.concat(pq_matched_repre,2)
+            repres_3=tf.concat(pc_matched_repre,2)
+            matching_tensors.append(repres_2)
+            matching_tensors.append(repres_3)
+            rep2_dim=matched_pq_dim
+            rep3_dim=matched_pc_dim
+            print('dims:',rep1_dim,rep2_dim,rep3_dim)
+            if is_training:
+                repres_2 = tf.nn.dropout(repres_2, (1 - dropout_rate))
+                repres_3 = tf.nn.dropout(repres_3, (1 - dropout_rate))
+            else:
+                repres_2 = tf.multiply(repres_2, (1 - dropout_rate))
+                repres_3 = tf.multiply(repres_3, (1 - dropout_rate))
+                
+            # ======Highway layer======
+            if with_match_highway:
+                if matching_option==4:
+                    with tf.variable_scope("matching_highway_1"):
+                        repres_1 = multi_highway_layer(repres_1, rep1_dim, highway_layer_num)
+                with tf.variable_scope("matching_highway_2"):
+                    repres_2 = multi_highway_layer(repres_2, rep2_dim, highway_layer_num)
+                with tf.variable_scope("matching_highway_3"):
+                    repres_3 = multi_highway_layer(repres_3, rep3_dim, highway_layer_num)    
+            if matching_option==4:
+                aggregation_inputs=[repres_1,repres_2,repres_3]
+                aggregation_dims=[rep1_dim,rep2_dim,rep3_dim]
+                aggregation_lengths=[passage_lengths,question_lengths,choice_lengths]
+            else:
+                aggregation_inputs=[repres_2,repres_3]
+                aggregation_dims=[rep2_dim,rep3_dim]
+                aggregation_lengths=[question_lengths,choice_lengths]
+
+        elif matching_option==5:
+            matching_tensors.extend(qp_matched_repre)
+            matching_tensors.extend(pq_matched_repre)
+            repres_1=tf.concat(qp_matched_repre,2)
+            repres_2=tf.concat(pq_matched_repre,2)
+            rep1_dim=matched_qp_dim
+            rep2_dim=matched_pq_dim
+            matching_tensors.append(repres_1)
+            matching_tensors.append(repres_2)
+
+            if is_training:
+                repres_1 = tf.nn.dropout(repres_1, (1 - dropout_rate))
+                repres_2 = tf.nn.dropout(repres_2, (1 - dropout_rate))
+            else:
+                repres_1 = tf.multiply(repres_1, (1 - dropout_rate))
+                repres_2 = tf.multiply(repres_2, (1 - dropout_rate))
+                
+            # ======Highway layer======
+            if with_match_highway:
+                with tf.variable_scope("matching_highway_1"):
+                    repres_1 = multi_highway_layer(repres_1, rep1_dim, highway_layer_num)
+                with tf.variable_scope("matching_highway_2"):
+                    repres_2 = multi_highway_layer(repres_2, rep2_dim, highway_layer_num)
+            aggregation_inputs=[repres_1,repres_2]
+            aggregation_dims=[rep1_dim,rep2_dim]
+            aggregation_lengths=[passage_lengths,question_lengths]            
             
         #========Aggregation Layer======
         aggregation_representation = []
         aggregation_dim = 0
+        print('aggregation dims:',aggregation_dims)
         
         '''
         if with_mean_aggregation:
@@ -1128,59 +1336,26 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
             aggregation_representation.append(tf.reduce_mean(right_repres, axis=1))
             aggregation_dim += right_dim
         #'''
-
-        left_aggregation_input = left_repres
-        right_aggregation_input = right_repres
         with tf.variable_scope('aggregation_layer'):
             for i in range(aggregation_layer_num): # support multiple aggregation layer
-                with tf.variable_scope('left_layer-{}'.format(i)):
-                    aggregation_lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
-                    aggregation_lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
-                    if is_training:
-                        aggregation_lstm_cell_fw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_fw, output_keep_prob=(1 - dropout_rate))
-                        aggregation_lstm_cell_bw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_bw, output_keep_prob=(1 - dropout_rate))
-                    aggregation_lstm_cell_fw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_fw])
-                    aggregation_lstm_cell_bw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_bw])
-                    if matching_option in [1,2]:
+                for rep_id in range(len(aggregation_inputs)):
+                    with tf.variable_scope('layer-{}'.format(rep_id, i)):
+                        aggregation_lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
+                        aggregation_lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
+                        if is_training:
+                            aggregation_lstm_cell_fw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_fw, output_keep_prob=(1 - dropout_rate))
+                            aggregation_lstm_cell_bw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_bw, output_keep_prob=(1 - dropout_rate))
+                        aggregation_lstm_cell_fw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_fw])
+                        aggregation_lstm_cell_bw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_bw])
                         cur_aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
-                                aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, left_aggregation_input, 
-                                dtype=tf.float32, sequence_length=passage_lengths)
-                    else:
-                        cur_aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
-                                aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, left_aggregation_input, 
-                                dtype=tf.float32, sequence_length=question_lengths)                        
+                                aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, aggregation_inputs[rep_id], 
+                                dtype=tf.float32, sequence_length=aggregation_lengths[rep_id])                      
 
-                    fw_rep = cur_aggregation_representation[0][:,-1,:]
-                    bw_rep = cur_aggregation_representation[1][:,0,:]
-                    aggregation_representation.append(fw_rep)
-                    aggregation_representation.append(bw_rep)
-                    aggregation_dim += 2* aggregation_lstm_dim
-                    left_aggregation_input = tf.concat(cur_aggregation_representation, 2)# [batch_size, passage_len, 2*aggregation_lstm_dim]
-
-                with tf.variable_scope('right_layer-{}'.format(i)):
-                    aggregation_lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
-                    aggregation_lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
-                    if is_training:
-                        aggregation_lstm_cell_fw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_fw, output_keep_prob=(1 - dropout_rate))
-                        aggregation_lstm_cell_bw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_bw, output_keep_prob=(1 - dropout_rate))
-                    aggregation_lstm_cell_fw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_fw])
-                    aggregation_lstm_cell_bw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_bw])
-
-                    if matching_option in [1,2]:
-                        cur_aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
-                                aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, left_aggregation_input, 
-                                dtype=tf.float32, sequence_length=passage_lengths)
-                    else:
-                        cur_aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
-                                aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, left_aggregation_input, 
-                                dtype=tf.float32, sequence_length=choice_lengths)  
-
-                    fw_rep = cur_aggregation_representation[0][:,-1,:]
-                    bw_rep = cur_aggregation_representation[1][:,0,:]
-                    aggregation_representation.append(fw_rep)
-                    aggregation_representation.append(bw_rep)
-                    aggregation_dim += 2* aggregation_lstm_dim
-                    right_aggregation_input = tf.concat(cur_aggregation_representation, 2)# [batch_size, passage_len, 2*aggregation_lstm_dim]
+                        fw_rep = cur_aggregation_representation[0][:,-1,:]
+                        bw_rep = cur_aggregation_representation[1][:,0,:]
+                        aggregation_representation.append(fw_rep)
+                        aggregation_representation.append(bw_rep)
+                        aggregation_dim += 2* aggregation_lstm_dim
         #
         aggregation_representation = tf.concat(aggregation_representation, 1) # [batch_size, aggregation_dim]
 

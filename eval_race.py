@@ -2,12 +2,19 @@ import numpy as np
 import random
 import json
 
-pred_file=open(r'd:\users\t-yicxu\model_data\BiMPM\TriMatch.race_tri_ori_middle.probs')
-# input_data2=open(r'D:\users\t-yicxu\data\race\processed\dev_high.json',encoding='utf-8')
-input_data=open(r'D:\users\t-yicxu\data\race\processed\dev_middle.json',encoding='utf-8')
-all_data=json.load(input_data)
-# data2=json.load(input_data2)
-# all_data['data']+=data2['data']
+test_mode='test'
+subset='all'
+pred_file=open(r'd:\users\t-yicxu\model_data\BiMPM\SentenceMatch.race_concat_all_test.probs')
+input_data2=open(r'D:\users\t-yicxu\data\race\processed\\'+test_mode+'_high.json',encoding='utf-8')
+input_data=open(r'D:\users\t-yicxu\data\race\processed\\'+test_mode+'_middle.json',encoding='utf-8')
+if subset=='high':
+	all_data=json.load(input_data2)
+elif subset=='middle':
+	all_data=json.load(input_data)
+else:
+	all_data=json.load(input_data)
+	data2=json.load(input_data2)
+	all_data['data']+=data2['data']
 
 out_file=open(r'../model_data/result.txt','w',encoding='utf-8')
 

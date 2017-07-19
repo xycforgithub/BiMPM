@@ -94,32 +94,44 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
 
         total_tags += len(label_batch)
+        to_eval=[valid_graph.get_eval_correct()]
+
+        if outpath is not None:
+            if mode == 'prediction':
+                to_eval.append(valid_graph.get_predictions())
+            else:
+                to_eval.append(valid_graph.get_prob())
+        eval_res=sess.run(to_eval,feed_dict=feed_dict)
+
         if use_options:
-            correct_tags+=sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)*4
+            correct_tags+=eval_res[0]*4
+            # print('this correct tag=',eval_res[0])
         else:
-            correct_tags += sess.run(valid_graph.get_eval_correct(), feed_dict=feed_dict)
+            correct_tags += eval_res[0]
         if outpath is not None:
             if use_options:
                 if mode=='prediction':
-                    predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
+                    predictions = eval_res[1]
                     for i in range(len(label_batch)//num_options):
-                        gt=np.argmax(label_batch[i*4:(i+1)*4])
+                        gt=str(np.argmax(label_id_batch[i*4:(i+1)*4]))
                         outline=gt+"\t"+predictions[i]
                         outfile.write(outline)
                 else:
-                    probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
-                    for i in range(len(label_batch)):
-                        outfile.write(output_probs_options(probs[i]) + "\n")
+                    probs = eval_res[1]
+                    for i in range(len(label_batch)//num_options):
+                        # import pdb
+                        # pdb.set_trace()  
+                        outfile.write(str(np.argmax(label_id_batch[i*4:(i+1)*4]))+"\t"+output_probs_options(probs[i]) + "\n")
 
             else:
                 if mode =='prediction':
-                    predictions = sess.run(valid_graph.get_predictions(), feed_dict=feed_dict)
+                    predictions = eval_res[1]
                     for i in range(len(label_batch)):
                         outline = label_batch[i] + "\t" + label_vocab.getWord(predictions[i]) + "\t" + sent1_batch[i] + "\t" + sent2_batch[i] + "\n"
                         # outfile.write(outline.encode('utf-8'))
                         outfile.write(outline)
                 else:
-                    probs = sess.run(valid_graph.get_prob(), feed_dict=feed_dict)
+                    probs = eval_res[1]
                     for i in range(len(label_batch)):
                         outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
 
@@ -260,7 +272,7 @@ def main(_):
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose)
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
         
 #         with tf.name_scope("Valid"):
@@ -346,12 +358,13 @@ def main(_):
                 feed_dict[train_graph.get_in_passage_ners()] = NER_idx_2_batch
 
             if FLAGS.verbose:
-                _, loss_value, pred, prob, logits, correct = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
-                    train_graph.final_logits, train_graph.correct], feed_dict=feed_dict)
+                _, loss_value, pred, prob, logits, correct, all_repre = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
+                    train_graph.final_logits, train_graph.correct, train_graph.all_repre], feed_dict=feed_dict)
                 print('pred=',pred)
                 print('prob=',prob)
                 print('logits=',logits)
                 print('correct=',correct)
+                print('all repre shape=',all_repre.shape)
                 input('check')
             else:
                 _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)
@@ -374,7 +387,8 @@ def main(_):
 
                 # Evaluate against the validation set.
                 print('Validation Data Eval:')
-                accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab)
+                accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab,
+                        use_options=FLAGS.use_options)
                 print("Current accuracy is %.2f" % accuracy)
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
@@ -399,7 +413,8 @@ def main(_):
                  lex_decompsition_dim=FLAGS.lex_decompsition_dim,
                  with_left_match=(not FLAGS.wo_left_match), with_right_match=(not FLAGS.wo_right_match),
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match))
+                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match),
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match)
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
@@ -412,7 +427,8 @@ def main(_):
         step = 0
         saver.restore(sess, best_path)
 
-        accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab)
+        accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
+                use_options=FLAGS.use_options)
         print("Accuracy for test set is %.2f" % accuracy)
 
 if __name__ == '__main__':
