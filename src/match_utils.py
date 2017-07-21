@@ -1250,7 +1250,7 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
             else:
                 aggregation_lengths=[question_lengths,choice_lengths]
         elif matching_option in [4,6]:
-            print('aggregate')
+            # print('aggregate')
             if matching_option==4:
                 matching_tensors.extend(qp_matched_repre)
                 repres_1=tf.concat(qp_matched_repre,2)

@@ -2,18 +2,18 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-mode='test'
+mode='dev'
 # n_ans='same'
 concat_mode='concat' # replace or concat
 shuffle=False
-shuffle_questions=False
+shuffle_questions=True
 choice_num=4
 verbose=False
 true_repeat=1
-middle_only=False
+middle_only=True
 high_only=False
-sort=False
-triMatch=False # set concat_mode=concat to use triMatch
+sort=True
+triMatch=True # set concat_mode=concat to use triMatch
 partData=False
 largePartData=False
 if triMatch:
@@ -22,7 +22,7 @@ if triMatch:
 input_data2=open(r'D:\users\t-yicxu\data\race\processed\\'+mode+'_high.json',encoding='utf-8')
 input_data=open(r'D:\users\t-yicxu\data\race\processed\\'+mode+'_middle.json',encoding='utf-8')
 
-out_filename=r'D:\users\t-yicxu\data\race\entail_'+mode+'_'+concat_mode
+out_filename=r'D:\users\t-yicxu\data\race_clean\entail_'+mode+'_'+concat_mode
 
 if shuffle_questions:
 	out_filename+='_options'

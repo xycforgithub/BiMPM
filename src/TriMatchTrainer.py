@@ -12,6 +12,7 @@ from SentenceMatchDataStream import TriMatchDataStream
 from TriMatchModelGraph import TriMatchModelGraph
 import namespace_utils
 import numpy as np
+import json
 
 FLAGS = None
 num_options=4
@@ -61,6 +62,8 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
     total_tags = 0.0
     correct_tags = 0.0
     dataStream.reset()
+    correct_tag_list=[]
+    total_count_list=[]
     for batch_index in range(dataStream.get_num_batch()):
         if batch_index % 10 ==0:
             print(' %d/%d ' % (batch_index,dataStream.get_num_batch()), end="")
@@ -111,6 +114,10 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                 to_eval.append(valid_graph.get_prob())
         eval_res=sess.run(to_eval,feed_dict=feed_dict)
 
+        correct_tag_list.append(int(eval_res[0]))
+        # print('%d/%d'%(eval_res[0],len(label_batch)))
+        total_count_list.append(len(label_batch))
+
         if use_options:
             correct_tags+=eval_res[0]*4
             # print('this correct tag=',eval_res[0])
@@ -145,6 +152,8 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
 
     if outpath is not None: outfile.close()
     print('')
+    # print(correct_tag_list,total_count_list)
+    json.dump({'correct':correct_tag_list,'total':total_count_list},open('res.txt','w'))
     accuracy = correct_tags / total_tags * 100
     return accuracy
 
@@ -412,7 +421,7 @@ def main(_):
                 sub_loss_counter=0.0
 
             # Save a checkpoint and evaluate the model periodically.
-            if (step + 1) % trainDataStream.get_num_batch() == 99999 or (step + 1) == max_steps:
+            if (step + 1) % trainDataStream.get_num_batch() == 0 or (step + 1) == max_steps:
                 print()
                 # Print status to stdout.
                 duration = time.time() - start_time
@@ -428,12 +437,15 @@ def main(_):
                     outpath=None
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob')
-                print("Current accuracy is %.2f" % accuracy)
+                print("Current accuracy on dev set is %.2f" % accuracy)
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
                     saver.save(sess, best_path)
                     print('saving the current model.')
-
+                accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
+                    use_options=FLAGS.use_options,outpath=outpath, mode='prob')
+                print("Current accuracy on test set is %.2f" % accuracy)
+                
     print("Best accuracy on dev set is %.2f" % best_accuracy)
     # decoding
     print('Decoding on the test set:')

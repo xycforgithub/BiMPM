@@ -389,10 +389,13 @@ def main(_):
                 print('Validation Data Eval:')
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab,
                         use_options=FLAGS.use_options)
-                print("Current accuracy is %.2f" % accuracy)
+                print("Current accuracy on dev set is %.2f" % accuracy)
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
                     saver.save(sess, best_path)
+                accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab,
+                        use_options=FLAGS.use_options)
+                print("Current accuracy on test set is %.2f" % accuracy)                    
 
     print("Best accuracy on dev set is %.2f" % best_accuracy)
     # decoding
