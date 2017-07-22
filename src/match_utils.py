@@ -3,6 +3,8 @@ from tensorflow.python.ops import rnn
 import my_rnn
 
 eps = 1e-6
+
+
 def cosine_distance(y1,y2):
     # y1 [....,a, 1, d]
     # y2 [....,1, b, d]

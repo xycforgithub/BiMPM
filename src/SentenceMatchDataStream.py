@@ -208,6 +208,8 @@ class SentenceMatchDataStream(object):
     def get_batch(self, i):
         if i>= self.num_batch: return None
         return self.batches[i]
+
+def gen_indx_mat(batch1_length1,batch2_lengths):
         
 class TriMatchDataStream(SentenceMatchDataStream):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
@@ -368,6 +370,8 @@ class TriMatchDataStream(SentenceMatchDataStream):
             sent1_length_batch = np.array(sent1_length_batch)
             sent2_length_batch = np.array(sent2_length_batch)
             sent3_length_batch = np.array(sent3_length_batch)
+
+            qc_indices_mat=gen_indx_mat(sent2_length_batch,sent3_length_batch)
 
             sent1_char_length_batch = pad_2d_matrix(sent1_char_length_batch, max_length=max_sent1_length)
             sent2_char_length_batch = pad_2d_matrix(sent2_char_length_batch, max_length=max_sent2_length)
