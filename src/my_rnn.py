@@ -18,6 +18,9 @@ import tensorflow as tf
 
 _state_size_with_prefix = rnn_cell_impl._state_size_with_prefix
 
+def concatenate_sents(sent1_repre, sent2_repre, sent1_lengths, sent2_lengths)
+
+
 def _dynamic_rnn_loop(cell, inputs, initial_state, parallel_iterations, swap_memory, sequence_length=None, dtype=None):
   """Internal implementation of Dynamic RNN.
 
