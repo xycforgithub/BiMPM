@@ -13,9 +13,22 @@ class TriMatchModelGraph(object):
                  with_aggregation_highway=False,highway_layer_num=1,
                  match_to_passage=True, match_to_question=False, match_to_choice=False, with_no_match=False,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
-                 num_options=-1, verbose=False, matching_option=0):
+                 num_options=-1, verbose=False, matching_option=0, 
+                 concat_context=False, tied_aggre=True, rl_training_method='contrastive', rl_matches=[0,1,2]):
+        ''' Matching Options:
+        0:
+        1:
+        2:
+        3:
+        4:
+        5:
+        6:
+        7: Gated matching
+            concat_context: Concat question & choice and feed into context LSTM
+            tied_aggre: aggregation layer weights are tied.
+            training_method: contrastive reward or policy gradient
 
-
+        '''
         # ======word representation layer======
         in_question_repres = []
         in_passage_repres = []
@@ -24,6 +37,14 @@ class TriMatchModelGraph(object):
         self.passage_lengths = tf.placeholder(tf.int32, [None])
         self.choice_lengths = tf.placeholder(tf.int32, [None])
         self.truth = tf.placeholder(tf.int32, [None]) # [batch_size]
+        self.concat_idx_mat=None
+        self.split_idx_mat_q=None
+        self.split_idx_mat_c=None
+        if matching_option==7:
+            self.concat_idx_mat = tf.placeholder(tf.int32,[None, None])
+            if concat_context:
+                self.split_idx_mat_q=tf.placeholder(tf.int32, [None, None])
+                self.split_idx_mat_c=tf.placeholder(tf.int32, [None, None])
         input_dim = 0
         if with_word and word_vocab is not None: 
             self.in_question_words = tf.placeholder(tf.int32, [None, None]) # [batch_size, question_len]
@@ -187,19 +208,39 @@ class TriMatchModelGraph(object):
                 in_choice_repres = match_utils.multi_highway_layer(in_choice_repres, input_dim, highway_layer_num)
         # ========Bilateral Matching=====
         if verbose:
-            (match_representation, match_dim, self.matching_vectors) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+            if matching_option==7:
+                (match_representation, match_dim, self.matching_vectors) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+                        self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, 
+                        self.concat_idx_mat, self.split_idx_mat_q, self.split_idx_mat_c,
+                        MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
+                        with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
+                        match_to_passage, match_to_question, match_to_choice, with_no_match, 
+                        concat_context, tied_aggre, training_method, RL_matches,debug=True)
+            else:
+                (match_representation, match_dim, self.matching_vectors) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
                         context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match, debug=True, matching_option=matching_option)
         else:
-            (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+            if matching_option==7:
+                (match_representation, match_dim) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
                         context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match,matching_option=matching_option)
+            else:
+                (match_representation, match_dim) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+                        self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, 
+                        self.concat_idx_mat, self.split_idx_mat_q, self.split_idx_mat_c,
+                        MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
+                        with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
+                        match_to_passage, match_to_question, match_to_choice, with_no_match, 
+                        concat_context, tied_aggre, training_method, RL_matches)
 
         print('check: match_dim=',match_dim)
         #========Prediction Layer=========

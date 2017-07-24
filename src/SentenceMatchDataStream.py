@@ -209,13 +209,14 @@ class SentenceMatchDataStream(object):
         if i>= self.num_batch: return None
         return self.batches[i]
 
-def gen_indx_mat(batch1_lengths,batch2_lengths):
-    sum_length=np.array(batch1_lengths)+np.array(batch2_lengths)
+def gen_concat_indx_mat(batch1_lengths,batch2_lengths):
+    # sum_length=np.array(batch1_lengths)+np.array(batch2_lengths)
+    sum_length=batch1_lengths+batch2_lengths
     max_length=np.max(sum_length)
     max_length_1=np.max(batch1_lengths)
     max_length_2=np.max(batch2_lengths)
     batch_size=len(batch1_lengths)
-    idx=np.zeros(batch_size, max_length,2)
+    idx=np.zeros((batch_size, max_length,2))
     for i in range(batch_size):
         counter=0
         for j in range(batch1_lengths[i]):
@@ -228,14 +229,38 @@ def gen_indx_mat(batch1_lengths,batch2_lengths):
             counter+=1
         for k in range(counter,max_length):
             idx[i,k,0]=i
-            idx[i,k,1]=batch2_lengths[i]+max_length_1
+            idx[i,k,1]=batch2_lengths[i]+max_length_1-1
 
     return idx,sum_length.tolist()
+def gen_split_indx_mat(batch1_lengths,batch2_lengths):
+    # sum_length=np.array(batch1_lengths)+np.array(batch2_lengths)
+    sum_length=batch1_lengths+batch2_lengths
+    max_length=np.max(sum_length)
+    max_length_1=np.max(batch1_lengths)
+    max_length_2=np.max(batch2_lengths)
+    batch_size=len(batch1_lengths)
+    idx1=np.zeros((batch_size,max_length_1,2))
+    idx2=np.zeros((batch_size,max_length_2,2))
+    for i in range(batch_size):
+        for j in range(batch1_lengths[i]):
+            idx1[i,j,0]=i
+            idx1[i,j,1]=j
+        for j in range(batch1_lengths[i],max_length_1):
+            idx1[i,j,0]=i
+            idx1[i,j,1]=batch1_lengths[i]-1
+        for j in range(batch2_lengths[i]):
+            idx2[i,j,0]=i
+            idx2[i,j,1]=batch1_lengths[i]+j
+        for j in range(batch2_lengths[i],max_length_2):
+            idx2[i,j,0]=i
+            idx2[i,j,1]=batch1_lengths[i]+batch2_lengths[i]-1
+    return idx1,idx2            
+
         
 class TriMatchDataStream(SentenceMatchDataStream):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
                  isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200,max_hyp_length=100, max_choice_length=None,
-                 tolower=False):
+                 tolower=False, gen_concat_mat=False, gen_split_mat=False):
         if max_choice_length is None:
             max_choice_length=max_hyp_length
         instances = []
@@ -319,6 +344,9 @@ class TriMatchDataStream(SentenceMatchDataStream):
             sent1_char_length_batch = []
             sent2_char_length_batch = []
             sent3_char_length_batch = []
+            split_mat_batch_q=None
+            split_mat_batch_c=None
+            concat_mat_batch=None
 
             POS_idx_1_batch = None
             if POS_vocab is not None: POS_idx_1_batch = []
@@ -350,6 +378,7 @@ class TriMatchDataStream(SentenceMatchDataStream):
                 sent1_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_1])
                 sent2_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_2])
                 sent3_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_3])
+
 
                 if POS_vocab is not None: 
                     POS_idx_1_batch.append(POS_idx_1)
@@ -392,7 +421,10 @@ class TriMatchDataStream(SentenceMatchDataStream):
             sent2_length_batch = np.array(sent2_length_batch)
             sent3_length_batch = np.array(sent3_length_batch)
 
-            qc_indices_mat=gen_indx_mat(sent2_length_batch,sent3_length_batch)
+            if gen_concat_mat:
+                concat_mat_batch, _=gen_concat_indx_mat(sent2_length_batch,sent3_length_batch)
+            if gen_split_mat:
+                split_mat_batch_q, split_mat_batch_c=gen_split_indx_mat(sent2_length_batch,sent3_length_batch)
 
             sent1_char_length_batch = pad_2d_matrix(sent1_char_length_batch, max_length=max_sent1_length)
             sent2_char_length_batch = pad_2d_matrix(sent2_char_length_batch, max_length=max_sent2_length)
@@ -411,7 +443,8 @@ class TriMatchDataStream(SentenceMatchDataStream):
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, char_matrix_idx_3_batch, 
                                  sent1_length_batch, sent2_length_batch, sent3_length_batch,
                                  sent1_char_length_batch, sent2_char_length_batch, sent3_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch))
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch,
+                                 concat_mat_batch,split_mat_batch_q, split_mat_batch_c))
         
         instances = None
         self.num_batch = len(self.batches)

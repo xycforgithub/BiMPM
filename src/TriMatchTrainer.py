@@ -74,7 +74,8 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                              char_matrix_idx_1_batch, char_matrix_idx_2_batch, char_matrix_idx_3_batch, 
                              sent1_length_batch, sent2_length_batch, sent3_length_batch,
                              sent1_char_length_batch, sent2_char_length_batch, sent3_char_length_batch,
-                             POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch) = cur_batch
+                             POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch,
+                             concat_mat_batch, split_mat_batch_q, split_mat_batch_c) = cur_batch
         feed_dict = {
                      valid_graph.get_truth(): label_id_batch, 
                      valid_graph.get_passage_lengths(): sent1_length_batch, 
@@ -178,6 +179,8 @@ def main(_):
     word_vec_path = FLAGS.word_vec_path
     log_dir = FLAGS.model_dir
     tolower=FLAGS.use_lower_letter
+    FLAGS.rl_matches=json.loads(FLAGS.rl_matches)
+
     # if not os.path.exists(log_dir):
     #     os.makedirs(log_dir)
     
@@ -195,6 +198,8 @@ def main(_):
     has_pre_trained_model = False
     POS_vocab = None
     NER_vocab = None
+
+
     print('best path:', best_path)
     if os.path.exists(best_path+'.data-00000-of-00001') and not(FLAGS.create_new_model):
         print('Using pretrained model')
@@ -241,13 +246,18 @@ def main(_):
     num_classes = label_vocab.size()
 
     print('Build TriMatchDataStream ... ')
+    if FLAGS.matching_option==7:
+        gen_concat_mat=True
+        if FLAGS.concat_context:
+            gen_split_mat=true
     trainDataStream = TriMatchDataStream(train_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
                                               batch_size=FLAGS.batch_size, isShuffle=True, isLoop=True, 
                                               isSort=(not FLAGS.wo_sort_instance_based_on_length), 
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
-                                              max_choice_length=FLAGS.max_choice_length, tolower=tolower)
+                                              max_choice_length=FLAGS.max_choice_length, tolower=tolower,
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
                                     
     devDataStream = TriMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -255,7 +265,8 @@ def main(_):
                                               isSort=(not FLAGS.wo_sort_instance_based_on_length), 
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
-                                              max_choice_length=FLAGS.max_choice_length, tolower=tolower)
+                                              max_choice_length=FLAGS.max_choice_length, tolower=tolower,
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
 
     testDataStream = TriMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -263,7 +274,8 @@ def main(_):
                                               isSort=(not FLAGS.wo_sort_instance_based_on_length), 
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
-                                              max_choice_length=FLAGS.max_choice_length, tolower=tolower)
+                                              max_choice_length=FLAGS.max_choice_length, tolower=tolower,
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
 
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
     print('Number of instances in devDataStream: {}'.format(devDataStream.get_num_instance()))
@@ -294,7 +306,8 @@ def main(_):
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
                  use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
-                 matching_option=FLAGS.matching_option)
+                 matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
+                 tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches)
 
 
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
@@ -313,7 +326,9 @@ def main(_):
                  match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match,matching_option=FLAGS.matching_option)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match,
+                 matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
+                 tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches)
 
                 
         initializer = tf.global_variables_initializer()
@@ -349,7 +364,8 @@ def main(_):
                                  char_matrix_idx_1_batch, char_matrix_idx_2_batch, char_matrix_idx_3_batch, 
                                  sent1_length_batch, sent2_length_batch, sent3_length_batch,
                                  sent1_char_length_batch, sent2_char_length_batch, sent3_char_length_batch,
-                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch) = cur_batch
+                                 POS_idx_1_batch, POS_idx_2_batch, NER_idx_1_batch, NER_idx_2_batch,
+                                 concat_mat_batch, split_mat_batch_q, split_mat_batch_c) = cur_batch
 
             # print(label_id_batch)
             if FLAGS.verbose:
@@ -465,7 +481,9 @@ def main(_):
                  match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
                  with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
                  with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, matching_option=FLAGS.matching_option)
+                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, 
+                 matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
+                 tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches)
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
@@ -534,7 +552,10 @@ if __name__ == '__main__':
     parser.add_argument('--predict_val',default=False,help='Give probs to dev set after each epoch.',action='store_true')
     parser.add_argument('--matching_option',type=int,default=0,help='TriMatch Configuration.')
     parser.add_argument('--create_new_model',default=False,help='Create new model regardless of the old one.',action='store_true')
-
+    parser.add_argument('--concat_context', default=False, help='Concat question & choice and feed into context LSTM.', action='store_true')
+    parser.add_argument('--tied_aggre', default=True,help='Tie aggregation layer weights.', action='store_true')
+    parser.add_argument('--rl_training_method', default='contrastive', help='Method of RL to train gate.')
+    parser.add_argument('--rl_matches', default='0,1,2', help='list of RL matcher templates.')
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()
