@@ -280,6 +280,8 @@ class TriMatchModelGraph(object):
             #     tile_times=tf.constant([1,num_options])
             # else:
             #     tile_times=tf.constant([1,num_classes])
+            self.gate_prob=gate_prob
+            self.gate_log_prob=gate_log_prob
             weighted_probs=[]
             weighted_log_probs=[]
             for mid,matcher in enumerate(all_match_templates):
@@ -306,9 +308,10 @@ class TriMatchModelGraph(object):
             self.predictions = tf.arg_max(self.prob, 1)
 
             if rl_training_method=='soft_voting':
-                stacked_log_prob=tf.stack(weighted_log_probs,axis=2)
-                self.log_prob=tf.reduce_logsumexp(stacked_log_prob,axis=2)
-                self.loss=tf.reduce_mean(tf.multiply(gold_matrix,self.log_prob))
+                weighted_log_probs=tf.stack(weighted_log_probs,axis=2)
+                self.weighted_log_probs=weighted_log_probs
+                self.log_prob=tf.reduce_logsumexp(weighted_log_probs,axis=2)
+                self.loss=tf.negative(tf.reduce_mean(tf.multiply(gold_matrix,self.log_prob)))
             elif rl_training_method=='contrastive':
                 weighted_log_probs=tf.stack(weighted_log_probs,axis=0)
                 weighted_probs=tf.stack(weighted_probs,axis=0)
@@ -316,6 +319,8 @@ class TriMatchModelGraph(object):
                 baseline=tf.reduce_sum(tf.multiply(weighted_probs,reward_matrix),axis=[0,2],keep_dims=True)
                 log_coeffs=tf.multiply(weighted_probs,reward_matrix-baseline)
                 log_coeffs=tf.stop_gradient(log_coeffs)
+                self.log_coeffs=log_coeffs
+                self.weighted_log_probs=weighted_log_probs
                 self.loss=tf.negative(tf.reduce_sum(tf.multiply(weighted_log_probs, log_coeffs)))
 
 

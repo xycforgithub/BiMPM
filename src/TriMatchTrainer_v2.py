@@ -430,21 +430,35 @@ def main(_):
                 feed_dict[train_graph.split_idx_mat_c] = split_mat_batch_c
 
             if FLAGS.verbose:
+                # return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
+                    # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
                 return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
-                    train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
+                    train_graph.all_probs, train_graph.correct, train_graph.gate_prob, train_graph.gate_log_prob,
+                    train_graph.weighted_log_probs, train_graph.log_coeffs]+train_graph.matching_vectors, feed_dict=feed_dict)
+
                 print(len(return_list))
-                _, loss_value, pred, prob, all_probs, correct=return_list[0:6] 
+                _, loss_value, pred, prob, all_probs, correct, gate_prob, gate_log_prob, weighted_log_probs,\
+                    log_coeffs=return_list[0:10]
+                print('loss=',loss_value) 
                 print('pred=',pred)
                 print('prob=',prob)
-                print('logits=',all_probs)
+                print('all_probs=',all_probs)
                 print('correct=',correct)
-                for val in return_list[6:]:
+                print('gate_prob',gate_prob)
+                print('gate_log_prob',gate_log_prob)
+                print('weighted log probs=',weighted_log_probs)
+                print('log_coeffs=',log_coeffs)
+                for val in return_list[10:]:
                     if isinstance(val,list):
                         print('list len ',len(val))
                         for objj in val:
                             print('this shape=',val.shape)
                     print('this shape=',val.shape)
                     # print(val)
+                print(return_list[10][:,:,0])
+                print(return_list[12][:,:,0])
+                print(return_list[14][:,:,0])
+
                 input('check')
             else:
                 _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)

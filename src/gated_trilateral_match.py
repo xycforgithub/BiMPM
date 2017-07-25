@@ -153,6 +153,12 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         qc_shape=tf.shape(qc_context_representation_fw)
                         qc_len=qc_shape[1]
                         qc_mask = tf.sequence_mask(qc_lengths, qc_len, dtype=tf.float32)
+                matching_tensors.append(question_context_representation_fw)
+                matching_tensors.append(question_context_representation_bw)
+                matching_tensors.append(choice_context_representation_fw)
+                matching_tensors.append(choice_context_representation_fw)
+                matching_tensors.append(qc_context_representation_fw)
+                matching_tensors.append(qc_context_representation_bw)                
 
                 gate_input=tf.concat([question_context_representation_fw[:,-1,:],question_context_representation_bw[:,0,:]],1, name='gate_input')
 
