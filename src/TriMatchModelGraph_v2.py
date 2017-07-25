@@ -2,6 +2,7 @@ import tensorflow as tf
 import my_rnn
 import match_utils
 from gated_trilateral_match import gated_trilateral_match
+from my_rnn import SwitchableDropoutWrapper
 
 
 class TriMatchModelGraph(object):
@@ -38,6 +39,7 @@ class TriMatchModelGraph(object):
         self.passage_lengths = tf.placeholder(tf.int32, [None])
         self.choice_lengths = tf.placeholder(tf.int32, [None])
         self.truth = tf.placeholder(tf.int32, [None]) # [batch_size]
+        self.is_training=tf.placeholder(tf.bool,[])
         self.concat_idx_mat=None
         self.split_idx_mat_q=None
         self.split_idx_mat_c=None
@@ -151,7 +153,9 @@ class TriMatchModelGraph(object):
                 # lstm cell
                 char_lstm_cell = tf.contrib.rnn.BasicLSTMCell(char_lstm_dim)
                 # dropout
-                if is_training: char_lstm_cell = tf.contrib.rnn.DropoutWrapper(char_lstm_cell, output_keep_prob=(1 - dropout_rate))
+                char_lstm_cell = SwitchableDropoutWrapper(char_lstm_cell, self.is_training, input_keep_prob=(1-dropout_rate))
+                
+                # if is_training: char_lstm_cell = tf.contrib.rnn.DropoutWrapper(char_lstm_cell, output_keep_prob=(1 - dropout_rate))
                 char_lstm_cell = tf.contrib.rnn.MultiRNNCell([char_lstm_cell])
 
                 # question_representation
@@ -185,14 +189,18 @@ class TriMatchModelGraph(object):
         in_passage_repres = tf.concat(in_passage_repres, 2) # [batch_size, passage_len, dim]
         in_choice_repres = tf.concat(in_choice_repres, 2) # [batch_size, passage_len, dim]
 
-        if is_training:
-            in_question_repres = tf.nn.dropout(in_question_repres, (1 - dropout_rate))
-            in_passage_repres = tf.nn.dropout(in_passage_repres, (1 - dropout_rate))
-            in_choice_repres = tf.nn.dropout(in_choice_repres, (1 - dropout_rate))
-        else:
-            in_question_repres = tf.multiply(in_question_repres, (1 - dropout_rate))
-            in_passage_repres = tf.multiply(in_passage_repres, (1 - dropout_rate))
-            in_choice_repres = tf.multiply(in_choice_repres, (1 - dropout_rate))
+        in_question_repres=match_utils.apply_dropout(in_question_repres,self.is_training,dropout_rate)
+        in_passage_repres=match_utils.apply_dropout(in_passage_repres,self.is_training,dropout_rate)
+        in_choice_repres=match_utils.apply_dropout(in_choice_repres,self.is_training,dropout_rate)
+
+        # if is_training:
+        #     in_question_repres = tf.nn.dropout(in_question_repres, (1 - dropout_rate))
+        #     in_passage_repres = tf.nn.dropout(in_passage_repres, (1 - dropout_rate))
+        #     in_choice_repres = tf.nn.dropout(in_choice_repres, (1 - dropout_rate))
+        # else:
+        #     in_question_repres = tf.multiply(in_question_repres, (1 - dropout_rate))
+        #     in_passage_repres = tf.multiply(in_passage_repres, (1 - dropout_rate))
+        #     in_choice_repres = tf.multiply(in_choice_repres, (1 - dropout_rate))
 
 
         mask = tf.sequence_mask(self.passage_lengths, passage_len, dtype=tf.float32) # [batch_size, passage_len]
@@ -214,14 +222,14 @@ class TriMatchModelGraph(object):
                         in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, 
                         self.concat_idx_mat, self.split_idx_mat_q, self.split_idx_mat_c,
-                        MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context, tied_aggre, rl_matches,debug=True)
+                        concat_context, tied_aggre, rl_matches, cond_training=True, debug=True)
             else:
                 (match_representation, match_dim, self.matching_vectors) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
-                        context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match, debug=True, matching_option=matching_option)
@@ -231,14 +239,14 @@ class TriMatchModelGraph(object):
                         in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, 
                         self.concat_idx_mat, self.split_idx_mat_q, self.split_idx_mat_c,
-                        MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context, tied_aggre, rl_matches)
+                        concat_context, tied_aggre, rl_matches, cond_training=True)
             else:
                 (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
-                        context_layer_num, context_lstm_dim,is_training,dropout_rate,
+                        context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match, matching_option=matching_option)
@@ -276,7 +284,7 @@ class TriMatchModelGraph(object):
             weighted_log_probs=[]
             for mid,matcher in enumerate(all_match_templates):
 
-                matcher.add_softmax_pred(w_0,b_0,w_1,b_1, is_training, dropout_rate, use_options, num_options)
+                matcher.add_softmax_pred(w_0,b_0,w_1,b_1, self.is_training, dropout_rate, use_options, num_options)
                 weighted_probs.append(tf.multiply(matcher.prob, sliced_gate_probs[mid]))
                 weighted_log_probs.append(tf.add(matcher.log_prob, sliced_gate_log_probs[mid]))
 
@@ -315,10 +323,12 @@ class TriMatchModelGraph(object):
 
             logits = tf.matmul(match_representation, w_0) + b_0
             logits = tf.tanh(logits)
-            if is_training:
-                logits = tf.nn.dropout(logits, (1 - dropout_rate))
-            else:
-                logits = tf.multiply(logits, (1 - dropout_rate))
+
+            logits=match_utils.apply_dropout(logits,self.is_training,dropout_rate)
+            # if is_training:
+            #     logits = tf.nn.dropout(logits, (1 - dropout_rate))
+            # else:
+            #     logits = tf.multiply(logits, (1 - dropout_rate))
             logits = tf.matmul(logits, w_1) + b_1
 
             self.final_logits=logits

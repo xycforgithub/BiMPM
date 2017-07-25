@@ -15,11 +15,33 @@ from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.util import nest
 from tensorflow.python.ops import rnn
 import tensorflow as tf
+from tensorflow.contrib.rnn import DropoutWrapper
 
 _state_size_with_prefix = rnn_cell_impl._state_size_with_prefix
 
-def concatenate_sents(sent1_repre, sent2_repre, indices)
-  concat_repre=array_ops.concat(sent1_repre,sent2_repre,1)
+
+class SwitchableDropoutWrapper(DropoutWrapper):
+    def __init__(self, cell, is_train, input_keep_prob=1.0, output_keep_prob=1.0,
+             seed=None):
+        super(SwitchableDropoutWrapper, self).__init__(cell, input_keep_prob=input_keep_prob, output_keep_prob=output_keep_prob,
+                                                       seed=seed)
+        self.is_train = is_train
+
+    def __call__(self, inputs, state, scope=None):
+        outputs_do, new_state_do = super(SwitchableDropoutWrapper, self).__call__(inputs, state, scope=scope)
+        tf.get_variable_scope().reuse_variables()
+        outputs, new_state = self._cell(inputs, state, scope)
+        outputs = tf.cond(self.is_train, lambda: outputs_do, lambda: outputs)
+        if isinstance(state, tuple):
+            new_state = state.__class__(*[tf.cond(self.is_train, lambda: new_state_do_i, lambda: new_state_i)
+                                          for new_state_do_i, new_state_i in zip(new_state_do, new_state)])
+        else:
+            new_state = tf.cond(self.is_train, lambda: new_state_do, lambda: new_state)
+        return outputs, new_state
+
+
+def concatenate_sents(sent1_repre, sent2_repre, indices):
+  concat_repre=array_ops.concat([sent1_repre,sent2_repre],1)
   flat_repre=array_ops.gather_nd(concat_repre,indices)
   return flat_repre
   # input_shape=array_ops.shape(sent1_repre)
@@ -28,7 +50,7 @@ def concatenate_sents(sent1_repre, sent2_repre, indices)
   # return array_ops.reshape(flat_repre,[batch_size,-1,embed_dim])
 def split_sents(sent_repre,idx_1, idx_2):
   return array_ops.gather_nd(sent_repre,idx_1),array_ops.gather_nd(sent_repre,idx_2)
-def extract_double_repre(sent_repre_fw, sent_repre_bw,sent1_length, sent2_length):
+def extract_double_repre(sent_repre_fw, sent_repre_bw,sent1_length):
   input_shape=array_ops.shape(sent_repre_fw)
   batch_size=input_shape[0]
   batch_idx=math_ops.range(batch_size)

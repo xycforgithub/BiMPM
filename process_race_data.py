@@ -2,7 +2,7 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-mode='dev'
+mode='test'
 # n_ans='same'
 concat_mode='concat' # replace or concat
 shuffle=False
@@ -15,7 +15,7 @@ high_only=False
 sort=True
 triMatch=True # set concat_mode=concat to use triMatch
 partData=False
-largePartData=False
+largePartData=True
 if triMatch:
 	assert concat_mode=='concat'
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')

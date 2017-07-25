@@ -1,9 +1,13 @@
 import tensorflow as tf
 from tensorflow.python.ops import rnn
 import my_rnn
+from match_utils import multi_highway_layer
+from my_rnn import SwitchableDropoutWrapper
+import match_utils
+
 
 class Matcher:
-    def __init__(matching_id, question_lengths, choice_lengths):
+    def __init__(self,matching_id, question_lengths, choice_lengths, cond_training=True):
         self.question_repre=[]
         self.choice_repre=[]
         self.question_repre_dim=0
@@ -11,39 +15,46 @@ class Matcher:
         self.matching_id=matching_id
         self.question_lengths=question_lengths
         self.choice_lengths=choice_lengths
-    def concat(is_training,dropout_rate):
+        self.cond_training=cond_training
+    def concat(self,is_training,dropout_rate):
         if self.question_repre_dim>0:
-            self.question_repre=tf.concat(self.question_repre, 2)
-            if is_training:
-                self.question_repre = tf.nn.dropout(self.question_repre, (1 - dropout_rate))
+            self.question_repre=tf.concat(self.question_repre, 2, name='conat_question_{}'.format(self.matching_id))
+            if self.cond_training:
+                self.question_repre=match_utils.apply_dropout(self.question_repre, is_training,dropout_rate)
             else:
-                self.question_repre = tf.multiply(self.question_repre, (1 - dropout_rate))
+                if is_training:
+                    self.question_repre = tf.nn.dropout(self.question_repre, (1 - dropout_rate))
+                else:
+                    self.question_repre = tf.multiply(self.question_repre, (1 - dropout_rate))
         if self.choice_repre_dim>0:
-            self.choice_repre=tf.concat(self.choice_repre, 2)
-            if is_training:
-                self.choice_repre = tf.nn.dropout(self.choice_repre, (1 - dropout_rate))
+            self.choice_repre=tf.concat(self.choice_repre, 2, name='conat_choice_{}'.format(self.matching_id))
+            if self.cond_training:
+                self.choice_repre=match_utils.apply_dropout(self.choice_repre, is_training,dropout_rate)
             else:
-                self.choice_repre = tf.multiply(self.choice_repre, (1 - dropout_rate))          
-    def add_question_repre(question_repre,question_dim, extend=False):
+                if is_training:
+                    self.choice_repre = tf.nn.dropout(self.choice_repre, (1 - dropout_rate))
+                else:
+                    self.choice_repre = tf.multiply(self.choice_repre, (1 - dropout_rate))          
+    def add_question_repre(self,question_repre,question_dim, extend=False):
         if extend:
             self.question_repre.extend(question_repre)
         else:
             self.question_repre.append(question_repre)
         self.question_repre_dim+=question_dim
-    def add_choice_repre(choice_repre, choice_dim,extend=False):
+    def add_choice_repre(self,choice_repre, choice_dim,extend=False):
         if extend:
             self.choice_repre.extend(choice_repre)
         else:
             self.choice_repre.append(choice_repre)
         self.choice_repre_dim+=choice_dim
-    def add_highway_layer(highway_layer_num, name,reuse=False):
+    def add_highway_layer(self,highway_layer_num, name,reuse=False):
         if self.question_repre_dim>0:
             with tf.variable_scope("{}_ques".format(name),reuse=reuse):
                 self.question_repre = multi_highway_layer(self.question_repre, self.question_repre_dim, highway_layer_num)
         if self.choice_repre_dim>0:
             with tf.variable_scope("{}.choice".format(name),reuse=reuse):
                 self.choice_repre = multi_highway_layer(self.choice_repre, self.choice_repre_dim, highway_layer_num)
-    def aggregate(name,aggregation_layer_num, aggregation_lstm_dim, dropout_rate, reuse=False):
+    def aggregate(self,name,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, reuse=False):
         self.aggregation_representation = []
         self.aggregation_dim = 0
 
@@ -79,7 +90,9 @@ class Matcher:
                     with tf.variable_scope('{}-{}-{}'.format(name,rep_id, i), reuse=reuse):
                         aggregation_lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
                         aggregation_lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
-                        if is_training:
+                        if self.cond_training:
+                            aggregation_lstm_cell_fw=SwitchableDropoutWrapper(aggregation_lstm_cell_fw, is_training, output_keep_prob=(1-dropout_rate))
+                        elif is_training:
                             aggregation_lstm_cell_fw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_fw, output_keep_prob=(1 - dropout_rate))
                             aggregation_lstm_cell_bw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_bw, output_keep_prob=(1 - dropout_rate))
                         aggregation_lstm_cell_fw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_fw])
@@ -105,18 +118,20 @@ class Matcher:
         #
         self.aggregation_representation = tf.concat(self.aggregation_representation, 1) # [batch_size, self.aggregation_dim]
         return self.aggregation_dim
-    def add_aggregation_highway(highway_layer_num, name, reuse=False):
+    def add_aggregation_highway(self,highway_layer_num, name, reuse=False):
             # ======Highway layer======
-        with tf.variable_scope("aggregation_highway",reuse=reuse):
+        with tf.variable_scope(name,reuse=reuse):
             agg_shape = tf.shape(self.aggregation_representation)
             batch_size = agg_shape[0]
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [1, batch_size, self.aggregation_dim])
             self.aggregation_representation = multi_highway_layer(self.aggregation_representation, self.aggregation_dim, highway_layer_num)
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [batch_size, self.aggregation_dim])
-    def add_softmax_pred(w_0,b_0,w_1,b_1, is_training, use_options=True, num_options=4):
+    def add_softmax_pred(self,w_0,b_0,w_1,b_1, is_training, dropout_rate, use_options=True, num_options=4):
         logits = tf.matmul(self.aggregation_representation, w_0) + b_0
         logits = tf.tanh(logits)
-        if is_training:
+        if self.cond_training:
+            logits=match_utils.apply_dropout(logits,is_training,dropout_rate)
+        elif is_training:
             logits = tf.nn.dropout(logits, (1 - dropout_rate))
         else:
             logits = tf.multiply(logits, (1 - dropout_rate))
