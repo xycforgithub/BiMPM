@@ -51,6 +51,8 @@ class Matcher:
         aggregation_dims=[]
         aggregation_lengths=[]
 
+        split_double=False
+
         if self.question_repre_dim>0:
             aggregation_inputs.append(self.question_repre)
             aggregation_dims.append(self.question_repre_dim)
@@ -60,6 +62,8 @@ class Matcher:
             aggregation_inputs.append(self.choice_repre)
             aggregation_dims.append(self.choice_repre_dim)
             aggregation_lengths.append(self.choice_lengths)
+        else:
+            split_double=True
 
         
         '''
@@ -80,17 +84,27 @@ class Matcher:
                             aggregation_lstm_cell_bw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_bw, output_keep_prob=(1 - dropout_rate))
                         aggregation_lstm_cell_fw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_fw])
                         aggregation_lstm_cell_bw = tf.contrib.rnn.MultiRNNCell([aggregation_lstm_cell_bw])
-                        cur_self.aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
+                        cur_aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
                                 aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, aggregation_inputs[rep_id], 
                                 dtype=tf.float32, sequence_length=aggregation_lengths[rep_id])                      
 
-                        fw_rep = cur_self.aggregation_representation[0][:,-1,:]
-                        bw_rep = cur_self.aggregation_representation[1][:,0,:]
-                        self.aggregation_representation.append(fw_rep)
-                        self.aggregation_representation.append(bw_rep)
-                        self.aggregation_dim += 2* aggregation_lstm_dim
+                        if split_double:
+                            fw_rep_q,bw_rep_q,fw_rep_c,bw_rep_c = my_rnn.extract_double_repre(
+                                cur_aggregation_representation[0],cur_aggregation_representation[1], self.question_lengths)
+                            self.aggregation_representation.append(fw_rep_q)
+                            self.aggregation_representation.append(bw_rep_q)
+                            self.aggregation_representation.append(fw_rep_c)
+                            self.aggregation_representation.append(bw_rep_c)
+                            self.aggregation_dim += 4*aggregation_lstm_dim
+                        else:
+                            fw_rep = cur_aggregation_representation[0][:,-1,:]
+                            bw_rep = cur_aggregation_representation[1][:,0,:]
+                            self.aggregation_representation.append(fw_rep)
+                            self.aggregation_representation.append(bw_rep)
+                            self.aggregation_dim += 2* aggregation_lstm_dim
         #
         self.aggregation_representation = tf.concat(self.aggregation_representation, 1) # [batch_size, self.aggregation_dim]
+        return self.aggregation_dim
     def add_aggregation_highway(highway_layer_num, name, reuse=False):
             # ======Highway layer======
         with tf.variable_scope("aggregation_highway",reuse=reuse):
@@ -99,7 +113,7 @@ class Matcher:
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [1, batch_size, self.aggregation_dim])
             self.aggregation_representation = multi_highway_layer(self.aggregation_representation, self.aggregation_dim, highway_layer_num)
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [batch_size, self.aggregation_dim])
-    def add_softmax_pred(w_0,b_0,w_1,b_1,use_options):
+    def add_softmax_pred(w_0,b_0,w_1,b_1, is_training, use_options=True, num_options=4):
         logits = tf.matmul(self.aggregation_representation, w_0) + b_0
         logits = tf.tanh(logits)
         if is_training:
@@ -113,33 +127,12 @@ class Matcher:
             logits=tf.reshape(logits,[-1,num_options])
 
             self.prob = tf.nn.softmax(logits)
-            
-    #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
-    #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
+            self.log_prob=tf.nn.log_softmax(logits)
 
-            # gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-    #         gold_matrix = tf.one_hot(self.truth, num_classes)
-            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
-
-            # correct = tf.nn.in_top_k(logits, self.truth, 1)
-            # self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
-            correct = tf.equal(tf.argmax(logits,1),tf.argmax(gold_matrix,1))
-            self.correct=correct
 
         else:
             self.prob = tf.nn.softmax(logits)
-            
-    #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
-    #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
-
-            gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-    #         gold_matrix = tf.one_hot(self.truth, num_classes)
-            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
-
-            correct = tf.nn.in_top_k(logits, self.truth, 1)
-            self.correct=correct
-        self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
-        self.predictions = tf.arg_max(self.prob, 1)        
+            self.log_prob=tf.nn.log_softmax(logits)
 
 # class qc_Matcher:
 #     def __init__():

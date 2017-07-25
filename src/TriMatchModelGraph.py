@@ -26,7 +26,7 @@ class TriMatchModelGraph(object):
         7: Gated matching
             concat_context: Concat question & choice and feed into context LSTM
             tied_aggre: aggregation layer weights are tied.
-            training_method: contrastive reward or policy gradient
+            training_method: contrastive reward or policy gradient or soft voting
 
         '''
         # ======word representation layer======
@@ -209,7 +209,7 @@ class TriMatchModelGraph(object):
         # ========Bilateral Matching=====
         if verbose:
             if matching_option==7:
-                (match_representation, match_dim, self.matching_vectors) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+                (all_match_templates, match_dim, gate_prob, gate_log_prob, self.matching_tensors) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, 
                         self.concat_idx_mat, self.split_idx_mat_q, self.split_idx_mat_c,
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
@@ -226,7 +226,7 @@ class TriMatchModelGraph(object):
                         match_to_passage, match_to_question, match_to_choice, with_no_match, debug=True, matching_option=matching_option)
         else:
             if matching_option==7:
-                (match_representation, match_dim) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
+                (all_match_templates, match_dim, gate_prob, gate_log_prob) = match_utils.gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
                         context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
@@ -254,86 +254,132 @@ class TriMatchModelGraph(object):
             w_1 = tf.get_variable("w_1", [match_dim/2, num_classes],dtype=tf.float32)
             b_1 = tf.get_variable("b_1", [num_classes],dtype=tf.float32)
 
-        logits = tf.matmul(match_representation, w_0) + b_0
-        logits = tf.tanh(logits)
-        if is_training:
-            logits = tf.nn.dropout(logits, (1 - dropout_rate))
+        if matching_option==7:
+            sliced_gate_probs=tf.split(gate_prob,len(rl_matches),axis=1)
+            sliced_gate_log_probs=tf.split(gate_log_prob,len(rl_matches),axis=1)
+            # if use_options:
+            #     tile_times=tf.constant([1,num_options])
+            # else:
+            #     tile_times=tf.constant([1,num_classes])
+            weighted_probs=[]
+            weighted_log_probs=[]
+            for mid,matcher in enumerate(all_match_templates):
+
+                matcher.add_softmax_pred(w_0,b_0,w_1,b_1, is_training, use_options, num_options)
+                weighted_probs.append(tf.multiply(matcher.prob, sliced_gate_probs[mid]))
+                weighted_log_probs.append(tf.add(matcher.log_prob, sliced_gate_log_probs))
+
+            self.prob=tf.add_n([weighted_probs])
+            if use_options:
+                gold_matrix=tf.reshape(self.truth, [-1,num_options])
+                correct=tf.equal(tf.argmax(self.prob,1),tf.argmax(gold_matrix,1))
+            else:
+                gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
+        #         gold_matrix = tf.one_hot(self.truth, num_classes)
+
+                correct = tf.nn.in_top_k(logits, self.truth, 1)
+            self.correct=correct                
+            self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+            self.predictions = tf.arg_max(self.prob, 1)
+
+            if rl_training_method=='soft_voting':
+                stacked_log_prob=tf.stack(weighted_log_probs,axis=2)
+                self.log_prob=tf.reduce_logsumexp(stacked_log_prob,axis=2)
+                self.loss=tf.reduce_mean(tf.multiply(gold_matrix,self.log_prob))
+            elif rl_training_method=='contrastive':
+                weighted_log_probs=tf.stack(weighted_log_probs,axis=0)
+                weighted_probs=tf.stack(weighted_probs,axis=0)
+                reward_matrix=gold_matrix
+                baseline=tf.reduce_sum(tf.multiply(weighted_probs,reward_matrix),axis=[0,2],keep_dims=True)
+                log_coeffs=tf.multiply(weighted_probs,reward_matrix-baseline)
+                log_coeffs=tf.stop_gradient(log_coeffs)
+                self.loss=tf.reduce_sum(tf.multiply(weighted_log_probs, log_coeffs),axis=[0,2])
+
+
         else:
-            logits = tf.multiply(logits, (1 - dropout_rate))
-        logits = tf.matmul(logits, w_1) + b_1
 
-        self.final_logits=logits
-        if use_options:
-            logits=tf.reshape(logits,[-1,num_options])
-            gold_matrix=tf.reshape(self.truth,[-1,num_options])
+            logits = tf.matmul(match_representation, w_0) + b_0
+            logits = tf.tanh(logits)
+            if is_training:
+                logits = tf.nn.dropout(logits, (1 - dropout_rate))
+            else:
+                logits = tf.multiply(logits, (1 - dropout_rate))
+            logits = tf.matmul(logits, w_1) + b_1
 
-            self.prob = tf.nn.softmax(logits)
-            
-    #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
-    #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
+            self.final_logits=logits
+            if use_options:
+                logits=tf.reshape(logits,[-1,num_options])
+                gold_matrix=tf.reshape(self.truth,[-1,num_options])
 
-            # gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-    #         gold_matrix = tf.one_hot(self.truth, num_classes)
-            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+                self.prob = tf.nn.softmax(logits)
+                
+        #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
+        #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
-            # correct = tf.nn.in_top_k(logits, self.truth, 1)
-            # self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
-            correct = tf.equal(tf.argmax(logits,1),tf.argmax(gold_matrix,1))
-            self.correct=correct
+                # gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
+        #         gold_matrix = tf.one_hot(self.truth, num_classes)
+                self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+
+                # correct = tf.nn.in_top_k(logits, self.truth, 1)
+                # self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+                correct = tf.equal(tf.argmax(logits,1),tf.argmax(gold_matrix,1))
+                self.correct=correct
+
+            else:
+                self.prob = tf.nn.softmax(logits)
+                
+        #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
+        #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
+
+                gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
+        #         gold_matrix = tf.one_hot(self.truth, num_classes)
+                self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+
+                correct = tf.nn.in_top_k(logits, self.truth, 1)
+                self.correct=correct
+            self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+            self.predictions = tf.arg_max(self.prob, 1)
+
+        if matching_option==7 and rl_training_method=='contrastive':
 
         else:
-            self.prob = tf.nn.softmax(logits)
-            
-    #         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, tf.cast(self.truth, tf.int64), name='cross_entropy_per_example')
-    #         self.loss = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
-            gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
-    #         gold_matrix = tf.one_hot(self.truth, num_classes)
-            self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=gold_matrix))
+            if optimize_type == 'adadelta':
+                clipper = 50 
+                optimizer = tf.train.AdadeltaOptimizer(learning_rate=learning_rate)
+                tvars = tf.trainable_variables()
+                l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in tvars if v.get_shape().ndims > 1])
+                self.loss = self.loss + lambda_l2 * l2_loss
+                grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, tvars), clipper)
+                self.train_op = optimizer.apply_gradients(list(zip(grads, tvars))) 
+            elif optimize_type == 'sgd':
+                self.global_step = tf.Variable(0, name='global_step', trainable=False) # Create a variable to track the global step.
+                min_lr = 0.000001
+                self._lr_rate = tf.maximum(min_lr, tf.train.exponential_decay(learning_rate, self.global_step, 30000, 0.98))
+                self.train_op = tf.train.GradientDescentOptimizer(learning_rate=self._lr_rate).minimize(self.loss)
+            elif optimize_type == 'ema':
+                tvars = tf.trainable_variables()
+                train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
+                # Create an ExponentialMovingAverage object
+                ema = tf.train.ExponentialMovingAverage(decay=0.9999)
+                # Create the shadow variables, and add ops to maintain moving averages # of var0 and var1.
+                maintain_averages_op = ema.apply(tvars)
+                # Create an op that will update the moving averages after each training
+                # step.  This is what we will use in place of the usual training op.
+                with tf.control_dependencies([train_op]):
+                    self.train_op = tf.group(maintain_averages_op)
+            elif optimize_type == 'adam':
+                clipper = 50 
+                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+                tvars = tf.trainable_variables()
+                l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in tvars if v.get_shape().ndims > 1])
+                self.loss = self.loss + lambda_l2 * l2_loss
+                grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, tvars), clipper)
+                self.train_op = optimizer.apply_gradients(list(zip(grads, tvars))) 
 
-            correct = tf.nn.in_top_k(logits, self.truth, 1)
-            self.correct=correct
-        self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
-        self.predictions = tf.arg_max(self.prob, 1)
-
-        
-
-        if optimize_type == 'adadelta':
-            clipper = 50 
-            optimizer = tf.train.AdadeltaOptimizer(learning_rate=learning_rate)
-            tvars = tf.trainable_variables()
-            l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in tvars if v.get_shape().ndims > 1])
-            self.loss = self.loss + lambda_l2 * l2_loss
-            grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, tvars), clipper)
-            self.train_op = optimizer.apply_gradients(list(zip(grads, tvars))) 
-        elif optimize_type == 'sgd':
-            self.global_step = tf.Variable(0, name='global_step', trainable=False) # Create a variable to track the global step.
-            min_lr = 0.000001
-            self._lr_rate = tf.maximum(min_lr, tf.train.exponential_decay(learning_rate, self.global_step, 30000, 0.98))
-            self.train_op = tf.train.GradientDescentOptimizer(learning_rate=self._lr_rate).minimize(self.loss)
-        elif optimize_type == 'ema':
-            tvars = tf.trainable_variables()
-            train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
-            # Create an ExponentialMovingAverage object
-            ema = tf.train.ExponentialMovingAverage(decay=0.9999)
-            # Create the shadow variables, and add ops to maintain moving averages # of var0 and var1.
-            maintain_averages_op = ema.apply(tvars)
-            # Create an op that will update the moving averages after each training
-            # step.  This is what we will use in place of the usual training op.
-            with tf.control_dependencies([train_op]):
-                self.train_op = tf.group(maintain_averages_op)
-        elif optimize_type == 'adam':
-            clipper = 50 
-            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-            tvars = tf.trainable_variables()
-            l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in tvars if v.get_shape().ndims > 1])
-            self.loss = self.loss + lambda_l2 * l2_loss
-            grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, tvars), clipper)
-            self.train_op = optimizer.apply_gradients(list(zip(grads, tvars))) 
-
-        extra_train_ops = []
-        train_ops = [self.train_op] + extra_train_ops
-        self.train_op = tf.group(*train_ops)
+            extra_train_ops = []
+            train_ops = [self.train_op] + extra_train_ops
+            self.train_op = tf.group(*train_ops)
 
     def get_predictions(self):
         return self.__predictions

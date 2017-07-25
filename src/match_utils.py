@@ -1532,6 +1532,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
                     gate_prob=tf.nn.softmax(gate_logits)
 
+                    gate_log_prob=tf.nn.log_softmax(gate_logits)
+
                 if 0 in rl_matches:
                     with tf.variable_scope('p_qc_matching'):
                         (p_qc_matching_vectors,p_qc_matching_dim) = match_passage_with_question(passage_context_representation_fw, 
@@ -1611,7 +1613,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
         if with_match_highway:
             matcher.add_highway_layer(highway_layer_num, 'highway_{}'.format(mid) ,reuse=False)
-        matcher.aggregate('aggregate_{}'.format(mid), aggregation_layer_num, aggregation_lstm_dim, dropout_rate, reuse=False)
+        agg_dim=matcher.aggregate('aggregate_{}'.format(mid), aggregation_layer_num, aggregation_lstm_dim, dropout_rate, reuse=False)
+        print('aggregation dim=',agg_dim)
         if with_aggregation_highway:
             if not added_agg_highway:
                 matcher.add_aggregation_highway(highway_layer_num, 'aggregation_highway', reuse=False)
@@ -1619,5 +1622,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
             else:
                 matcher.add_aggregation_highway(highway_layer_num, 'aggregation_highway', reuse=True)
 
-    
-    return (aggregation_representation, aggregation_dim)
+    if verbose:
+        return all_match_templates, agg_dim, gate_prob, gate_log_prob, matching_tensors
+    else:
+        return all_match_templates, agg_dim, gate_prob, gate_log_prob

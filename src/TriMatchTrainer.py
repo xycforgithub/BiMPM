@@ -104,6 +104,11 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
         if NER_vocab is not None:
             feed_dict[valid_graph.get_in_passage_ners()] = NER_idx_1_batch
             feed_dict[valid_graph.get_in_question_ners()] = NER_idx_2_batch
+        if concat_mat_batch is not None:
+            feed_dict[valid_graph.concat_idx_mat] = concat_mat_batch
+        if split_mat_batch_q is not None:
+            feed_dict[valid_graph.split_idx_mat_q] = split_mat_batch_q
+            feed_dict[valid_graph.split_idx_mat_c] = split_mat_batch_c
 
         total_tags += len(label_batch)
         to_eval=[valid_graph.get_eval_correct()]
@@ -408,6 +413,11 @@ def main(_):
             if NER_vocab is not None:
                 feed_dict[train_graph.get_in_passage_ners()] = NER_idx_1_batch
                 feed_dict[train_graph.get_in_question_ners()] = NER_idx_2_batch
+            if concat_mat_batch is not None:
+                feed_dict[train_graph.concat_idx_mat] = concat_mat_batch
+            if split_mat_batch_q is not None:
+                feed_dict[train_graph.split_idx_mat_q] = split_mat_batch_q
+                feed_dict[train_graph.split_idx_mat_c] = split_mat_batch_c
 
             if FLAGS.verbose:
                 return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
