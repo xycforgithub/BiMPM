@@ -97,13 +97,15 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
 
 
+                    if 0 in rl_matches:
+                        qc_lengths=question_lengths+choice_lengths
 
                     if concat_context:
                         in_qc_repres=my_rnn.concatenate_sents(in_question_repres,in_choice_repres,concat_idx_mat)
                         # question representation
                         (qc_context_representation_fw, qc_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                             context_lstm_cell_fw, context_lstm_cell_bw, in_qc_repres, dtype=tf.float32, 
-                                            sequence_length=question_lengths) # [batch_size, question_len, context_lstm_dim]
+                                            sequence_length=qc_lengths) # [batch_size, question_len, context_lstm_dim]
                         # in_qc_repres = tf.concat([qc_context_representation_fw, qc_context_representation_bw], 2)
 
                         # gate_input=my_rnn.extract_question_repre(qc_context_representation_fw,qc_context_representation_bw,question_lengths)
@@ -148,11 +150,10 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                             qc_context_representation_bw = my_rnn.concatenate_sents(question_context_representation_bw, 
                                 choice_context_representation_bw, concat_idx_mat)
                             # in_qc_repres=my_rnn.concatenate_sents(in_question_repres,in_choice_repres,concat_idx_mat)
-                    if 0 in rl_matches:
-                        qc_lengths=question_lengths+choice_lengths
-                        qc_shape=tf.shape(qc_context_representation_fw)
-                        qc_len=qc_shape[1]
-                        qc_mask = tf.sequence_mask(qc_lengths, qc_len, dtype=tf.float32)
+                if 0 in rl_matches:
+                    qc_shape=tf.shape(qc_context_representation_fw)
+                    qc_len=qc_shape[1]
+                    qc_mask = tf.sequence_mask(qc_lengths, qc_len, dtype=tf.float32)                    
                 matching_tensors.append(question_context_representation_fw)
                 matching_tensors.append(question_context_representation_bw)
                 matching_tensors.append(choice_context_representation_fw)
@@ -235,8 +236,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     added_agg_highway=False
 
     for mid,matcher in enumerate(all_match_templates):
-        matching_tensors.extend(matcher.question_repre)
-        matching_tensors.extend(matcher.choice_repre)
+        # matching_tensors.extend(matcher.question_repre)
+        # matching_tensors.extend(matcher.choice_repre)
         matcher.concat(is_training,dropout_rate)
         if matcher.question_repre_dim>0:
             matching_tensors.append(matcher.question_repre)

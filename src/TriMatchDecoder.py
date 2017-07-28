@@ -75,7 +75,9 @@ if __name__ == '__main__':
     use_options=False
     if hasattr(FLAGS,'use_options'): use_options=FLAGS.use_options
 
-
+    cond_training=False
+    if hasattr(FLAGS,'cond_training') or FLAGS.matching_option==7:
+        cond_training=True
 
     if args.batch_size is not None:
         FLAGS.batch_size=args.batch_size
@@ -116,7 +118,7 @@ if __name__ == '__main__':
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
         with tf.variable_scope("Model", reuse=False, initializer=initializer):
             valid_graph =  TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                 dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
+                 dropout_rate=0.0, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
                  lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
                  aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
                  context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 

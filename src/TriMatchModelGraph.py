@@ -242,16 +242,17 @@ class TriMatchModelGraph(object):
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, with_aggregation_highway, 
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match, matching_option=matching_option)
-        with tf.variable_scope('rl_decision_gate'):
-            if use_options:
-                gate_input=gate_input[::num_options,:]
-            w_gate=tf.get_variable('w_gate',[2*context_lstm_dim,len(rl_matches)],dtype=tf.float32)
-            b_gate=tf.get_variable('b_gate',[len(rl_matches)],dtype=tf.float32)
-            gate_logits=tf.matmul(gate_input,w_gate)+b_gate
+        if matching_option==7:
+            with tf.variable_scope('rl_decision_gate'):
+                if use_options:
+                    gate_input=gate_input[::num_options,:]
+                w_gate=tf.get_variable('w_gate',[2*context_lstm_dim,len(rl_matches)],dtype=tf.float32)
+                b_gate=tf.get_variable('b_gate',[len(rl_matches)],dtype=tf.float32)
+                gate_logits=tf.matmul(gate_input,w_gate)+b_gate
 
-            gate_prob=tf.nn.softmax(gate_logits)
+                gate_prob=tf.nn.softmax(gate_logits)
 
-            gate_log_prob=tf.nn.log_softmax(gate_logits)
+                gate_log_prob=tf.nn.log_softmax(gate_logits)
 
         print('check: match_dim=',match_dim)
         #========Prediction Layer=========

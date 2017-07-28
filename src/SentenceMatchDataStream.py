@@ -216,7 +216,7 @@ def gen_concat_indx_mat(batch1_lengths,batch2_lengths):
     max_length_1=np.max(batch1_lengths)
     max_length_2=np.max(batch2_lengths)
     batch_size=len(batch1_lengths)
-    idx=np.zeros((batch_size, max_length,2))
+    idx=np.zeros((batch_size, max_length,2),dtype=np.int32)
     for i in range(batch_size):
         counter=0
         for j in range(batch1_lengths[i]):
@@ -239,8 +239,8 @@ def gen_split_indx_mat(batch1_lengths,batch2_lengths):
     max_length_1=np.max(batch1_lengths)
     max_length_2=np.max(batch2_lengths)
     batch_size=len(batch1_lengths)
-    idx1=np.zeros((batch_size,max_length_1,2))
-    idx2=np.zeros((batch_size,max_length_2,2))
+    idx1=np.zeros((batch_size,max_length_1,2),dtype=np.int32)
+    idx2=np.zeros((batch_size,max_length_2,2),dtype=np.int32)
     for i in range(batch_size):
         for j in range(batch1_lengths[i]):
             idx1[i,j,0]=i

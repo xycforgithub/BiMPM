@@ -16,7 +16,7 @@ class TriMatchModelGraph(object):
                  match_to_passage=True, match_to_question=False, match_to_choice=False, with_no_match=False,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
                  num_options=-1, verbose=False, matching_option=0, 
-                 concat_context=False, tied_aggre=False, rl_training_method='contrastive', rl_matches=[0,1,2]):
+                 concat_context=False, tied_aggre=False, rl_training_method='contrastive', rl_matches=[0,1,2], cond_training=False):
         ''' Matching Options:
         0:a1=q->p, a2=c->p, [concat(a1->a2,a2->a1)]
         1:a1=q->p, a2=c->p, [a1->a2,a2->a1]
@@ -30,6 +30,11 @@ class TriMatchModelGraph(object):
             tied_aggre: aggregation layer weights are tied.
             training_method: contrastive reward or policy gradient or soft voting
 
+        RL training method:
+        soft_voting: Simple voting training without RL
+        contrastive: Basic contrastive reward
+        contrastive_imp: Use (r/b-1) instead of (r-b) as in ReasoNet.
+
         '''
         # ======word representation layer======
         in_question_repres = []
@@ -39,12 +44,15 @@ class TriMatchModelGraph(object):
         self.passage_lengths = tf.placeholder(tf.int32, [None])
         self.choice_lengths = tf.placeholder(tf.int32, [None])
         self.truth = tf.placeholder(tf.int32, [None]) # [batch_size]
-        self.is_training=tf.placeholder(tf.bool,[])
+        if cond_training:
+            self.is_training=tf.placeholder(tf.bool,[])
+        else:
+            self.is_training=is_training
         self.concat_idx_mat=None
         self.split_idx_mat_q=None
         self.split_idx_mat_c=None
         if matching_option==7:
-            self.concat_idx_mat = tf.placeholder(tf.int32,[None, None, 2])
+            self.concat_idx_mat = tf.placeholder(tf.int32,[None, None, 2], name='concat_idx_mat')
             if concat_context:
                 self.split_idx_mat_q=tf.placeholder(tf.int32, [None, None, 2])
                 self.split_idx_mat_c=tf.placeholder(tf.int32, [None, None, 2])
@@ -153,7 +161,10 @@ class TriMatchModelGraph(object):
                 # lstm cell
                 char_lstm_cell = tf.contrib.rnn.BasicLSTMCell(char_lstm_dim)
                 # dropout
-                char_lstm_cell = SwitchableDropoutWrapper(char_lstm_cell, self.is_training, input_keep_prob=(1-dropout_rate))
+                if cond_training:
+                    char_lstm_cell = SwitchableDropoutWrapper(char_lstm_cell, self.is_training, input_keep_prob=(1-dropout_rate))
+                elif is_training: 
+                    char_lstm_cell = tf.contrib.rnn.DropoutWrapper(char_lstm_cell, output_keep_prob=(1 - dropout_rate))
                 
                 # if is_training: char_lstm_cell = tf.contrib.rnn.DropoutWrapper(char_lstm_cell, output_keep_prob=(1 - dropout_rate))
                 char_lstm_cell = tf.contrib.rnn.MultiRNNCell([char_lstm_cell])
@@ -189,9 +200,19 @@ class TriMatchModelGraph(object):
         in_passage_repres = tf.concat(in_passage_repres, 2) # [batch_size, passage_len, dim]
         in_choice_repres = tf.concat(in_choice_repres, 2) # [batch_size, passage_len, dim]
 
-        in_question_repres=match_utils.apply_dropout(in_question_repres,self.is_training,dropout_rate)
-        in_passage_repres=match_utils.apply_dropout(in_passage_repres,self.is_training,dropout_rate)
-        in_choice_repres=match_utils.apply_dropout(in_choice_repres,self.is_training,dropout_rate)
+        if cond_training:
+            in_question_repres=match_utils.apply_dropout(in_question_repres,self.is_training,dropout_rate)
+            in_passage_repres=match_utils.apply_dropout(in_passage_repres,self.is_training,dropout_rate)
+            in_choice_repres=match_utils.apply_dropout(in_choice_repres,self.is_training,dropout_rate)
+        elif is_training:
+            in_question_repres = tf.nn.dropout(in_question_repres, (1 - dropout_rate))
+            in_passage_repres = tf.nn.dropout(in_passage_repres, (1 - dropout_rate))
+            in_choice_repres = tf.nn.dropout(in_choice_repres, (1 - dropout_rate))
+        else:
+            in_question_repres = tf.multiply(in_question_repres, (1 - dropout_rate))
+            in_passage_repres = tf.multiply(in_passage_repres, (1 - dropout_rate))
+            in_choice_repres = tf.multiply(in_choice_repres, (1 - dropout_rate))
+
 
         # if is_training:
         #     in_question_repres = tf.nn.dropout(in_question_repres, (1 - dropout_rate))
@@ -225,7 +246,7 @@ class TriMatchModelGraph(object):
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context, tied_aggre, rl_matches, cond_training=True, debug=True)
+                        concat_context, tied_aggre, rl_matches, cond_training=cond_training, debug=True)
             else:
                 (match_representation, match_dim, self.matching_vectors) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
@@ -242,7 +263,7 @@ class TriMatchModelGraph(object):
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context, tied_aggre, rl_matches, cond_training=True)
+                        concat_context, tied_aggre, rl_matches, cond_training=cond_training)
             else:
                 (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
@@ -284,14 +305,16 @@ class TriMatchModelGraph(object):
             self.gate_log_prob=gate_log_prob
             weighted_probs=[]
             weighted_log_probs=[]
+            all_probs=[]
             for mid,matcher in enumerate(all_match_templates):
 
                 matcher.add_softmax_pred(w_0,b_0,w_1,b_1, self.is_training, dropout_rate, use_options, num_options)
+                all_probs.append(matcher.prob)
                 weighted_probs.append(tf.multiply(matcher.prob, sliced_gate_probs[mid]))
                 weighted_log_probs.append(tf.add(matcher.log_prob, sliced_gate_log_probs[mid]))
 
             if verbose:
-                self.all_probs=tf.stack(weighted_probs,axis=0)
+                self.all_probs=tf.stack(all_probs,axis=0)
 
             self.prob=tf.add_n(weighted_probs)
             if use_options:
@@ -311,17 +334,22 @@ class TriMatchModelGraph(object):
                 weighted_log_probs=tf.stack(weighted_log_probs,axis=2)
                 self.weighted_log_probs=weighted_log_probs
                 self.log_prob=tf.reduce_logsumexp(weighted_log_probs,axis=2)
-                self.loss=tf.negative(tf.reduce_mean(tf.multiply(gold_matrix,self.log_prob)))
-            elif rl_training_method=='contrastive':
+                self.loss=tf.negative(tf.reduce_mean(tf.reduce_sum(tf.multiply(gold_matrix,self.log_prob),axis=1)))
+            elif rl_training_method=='contrastive' or rl_training_method=='contrastive_imp':
                 weighted_log_probs=tf.stack(weighted_log_probs,axis=0)
                 weighted_probs=tf.stack(weighted_probs,axis=0)
                 reward_matrix=gold_matrix
                 baseline=tf.reduce_sum(tf.multiply(weighted_probs,reward_matrix),axis=[0,2],keep_dims=True)
-                log_coeffs=tf.multiply(weighted_probs,reward_matrix-baseline)
+                if rl_training_method=='contrastive':
+                    normalized_reward=reward_matrix-baseline
+                else:
+                    normalized_reward=tf.divide(reward_matrix,baseline)-1
+                log_coeffs=tf.multiply(weighted_probs,normalized_reward)
                 log_coeffs=tf.stop_gradient(log_coeffs)
                 self.log_coeffs=log_coeffs
                 self.weighted_log_probs=weighted_log_probs
-                self.loss=tf.negative(tf.reduce_sum(tf.multiply(weighted_log_probs, log_coeffs)))
+                self.loss=tf.negative(tf.reduce_mean(
+                    tf.reduce_sum(tf.multiply(weighted_log_probs, log_coeffs),axis=[0,2])))
 
 
         else:
@@ -329,11 +357,12 @@ class TriMatchModelGraph(object):
             logits = tf.matmul(match_representation, w_0) + b_0
             logits = tf.tanh(logits)
 
-            logits=match_utils.apply_dropout(logits,self.is_training,dropout_rate)
-            # if is_training:
-            #     logits = tf.nn.dropout(logits, (1 - dropout_rate))
-            # else:
-            #     logits = tf.multiply(logits, (1 - dropout_rate))
+            if cond_training:
+                logits=match_utils.apply_dropout(logits,self.is_training,dropout_rate)
+            elif is_training:
+                logits = tf.nn.dropout(logits, (1 - dropout_rate))
+            else:
+                logits = tf.multiply(logits, (1 - dropout_rate))
             logits = tf.matmul(logits, w_1) + b_1
 
             self.final_logits=logits
