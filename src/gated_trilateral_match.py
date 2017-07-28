@@ -38,8 +38,14 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)
     qp_cosine_matrix_transpose = tf.transpose(qp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
 
-    tiled_in_passage_repres=maybe_tile(in_passage_repres,efficient)
-    tiled_mask=maybe_tile(mask,efficient)
+
+    if 0 in rl_matches:
+        qc_lengths=question_lengths+choice_lengths
+
+    tiled_in_passage_repres=maybe_tile(tiled_in_passage_repres,efficient)
+    tiled_mask=maybe_tile(tiled_mask,efficient)
+    tiled_question_lengths=maybe_tile(question_lengths,efficient)
+
     # if efficient:
     #     tiled_in_passage_repres=tf.tile(in_passage_repres,[num_option,1,1])
     #     tiled_mask=tf.tile(tiled_mask,[num_option,1])
@@ -97,7 +103,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
             all_match_templates.append(matcher)
         elif matchid==0:
-            matcher=Matcher(matchid, question_lengths, choice_lengths, cond_training=cond_training)
+            matcher=Matcher(matchid, question_lengths, choice_lengths, cond_training=cond_training, qc_lengths=qc_lengths)
             matcher.add_question_repre(qc_basic_embedding,qc_basic_dim)
             all_match_templates.append(matcher)
 
@@ -121,8 +127,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
 
 
-                    if 0 in rl_matches:
-                        qc_lengths=question_lengths+choice_lengths
+
 
                     if concat_context:
 

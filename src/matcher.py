@@ -7,7 +7,7 @@ import match_utils
 
 
 class Matcher:
-    def __init__(self,matching_id, question_lengths, choice_lengths, cond_training=True):
+    def __init__(self,matching_id, question_lengths, choice_lengths, qc_lengths=None, cond_training=True):
         self.question_repre=[]
         self.choice_repre=[]
         self.question_repre_dim=0
@@ -15,6 +15,7 @@ class Matcher:
         self.matching_id=matching_id
         self.question_lengths=question_lengths
         self.choice_lengths=choice_lengths
+        self.qc_lengths=qc_lengths
         self.cond_training=cond_training
     def concat(self,is_training,dropout_rate):
         if self.question_repre_dim>0:
@@ -67,7 +68,10 @@ class Matcher:
         if self.question_repre_dim>0:
             aggregation_inputs.append(self.question_repre)
             aggregation_dims.append(self.question_repre_dim)
-            aggregation_lengths.append(self.question_lengths)
+            if self.qc_lengths is not None:
+                aggregation_lengths.append(self.qc_lengths)
+            else:
+                aggregation_lengths.append(self.question_lengths)
 
         if self.choice_repre_dim>0:
             aggregation_inputs.append(self.choice_repre)
