@@ -12,7 +12,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway, with_full_match=True, with_maxpool_match=True, with_attentive_match=True,
-                        with_max_attentive_match=True, with_no_match=False, 
+                        with_max_attentive_match=True, 
                         concat_context=False, tied_aggre=True, rl_matches=[0,1,2], cond_training=False, debug=False):
 
     '''
@@ -23,6 +23,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     '''
     matching_tensors=[]
     print('gated trilateral match')
+    print('concat context=',concat_context)
+    print('tied_aggre',tied_aggre)
     qp_cosine_matrix = cal_relevancy_matrix(in_question_repres, in_passage_repres) # [batch_size, passage_len, question_len]
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)
     qp_cosine_matrix_transpose = tf.transpose(qp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
@@ -101,6 +103,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         qc_lengths=question_lengths+choice_lengths
 
                     if concat_context:
+                        print('concat context')
                         in_qc_repres=my_rnn.concatenate_sents(in_question_repres,in_choice_repres,concat_idx_mat)
                         # question representation
                         (qc_context_representation_fw, qc_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
@@ -123,6 +126,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                                             sequence_length=passage_lengths) # [batch_size, passage_len, context_lstm_dim]
                         in_passage_repres = tf.concat([passage_context_representation_fw, passage_context_representation_bw], 2)
                     else:
+                        print('not concat context')
                         # question representation
                         (question_context_representation_fw, question_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                             context_lstm_cell_fw, context_lstm_cell_bw, in_question_repres, dtype=tf.float32, 
