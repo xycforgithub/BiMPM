@@ -266,7 +266,7 @@ class TriMatchModelGraph(object):
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context=concat_context, tied_aggre=tied_aggre, rl_matches=rl_matches, cond_training=cond_training, debug=True)
+                        concat_context, tied_aggre, rl_matches, cond_training)
             else:
                 (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 

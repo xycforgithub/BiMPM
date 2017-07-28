@@ -437,7 +437,10 @@ class TriMatchDataStream(SentenceMatchDataStream):
             sent3_length_batch = np.array(sent3_length_batch)
 
             if gen_concat_mat:
-                tiled_sent2_length_batch=np.tile(sent2_length_batch,num_options)
+                if efficient:
+                    tiled_sent2_length_batch=np.tile(sent2_length_batch,num_options)
+                else:
+                    tiled_sent2_length_batch=sent2_length_batch
                 concat_mat_batch, _=gen_concat_indx_mat(tiled_sent2_length_batch,sent3_length_batch)
                 if gen_split_mat:
                     split_mat_batch_q, split_mat_batch_c=gen_split_indx_mat(tiled_sent2_length_batch,sent3_length_batch)

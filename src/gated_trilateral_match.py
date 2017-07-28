@@ -21,8 +21,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway, with_full_match=True, with_maxpool_match=True, with_attentive_match=True,
-                        with_max_attentive_match=True, 
-                        concat_context=False, tied_aggre=True, rl_matches=[0,1,2], cond_training=False, debug=False):
+                        with_max_attentive_match=True, with_no_match=False, 
+                        concat_context=False, tied_aggre=True, rl_matches=[0,1,2], cond_training=False, efficient=False, debug=False):
 
     '''
     rl_matches options:
@@ -38,8 +38,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)
     qp_cosine_matrix_transpose = tf.transpose(qp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
 
-    tiled_in_passage_repres=maybe_tile(tiled_in_passage_repres,efficient)
-    tiled_mask=maybe_tile(tiled_mask,efficient)
+    tiled_in_passage_repres=maybe_tile(in_passage_repres,efficient)
+    tiled_mask=maybe_tile(mask,efficient)
     # if efficient:
     #     tiled_in_passage_repres=tf.tile(in_passage_repres,[num_option,1,1])
     #     tiled_mask=tf.tile(tiled_mask,[num_option,1])
