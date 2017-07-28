@@ -5,6 +5,15 @@ from matcher import Matcher
 from match_utils import *
 from my_rnn import SwitchableDropoutWrapper
 
+num_option=4
+def maybe_tile(in_tensor, efficient):
+    if efficient:
+        rank=len(in_tensor.get_shape())
+        tilenum=[1 for i in range(rank)]
+        tilenum[0]=num_option
+        output=tf.tile(in_tensor,tilenum)
+    else:
+        output=in_tensor
 def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         question_lengths, passage_lengths, choice_lengths, 
                         question_mask, mask, choice_mask, 
@@ -13,7 +22,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway, with_full_match=True, with_maxpool_match=True, with_attentive_match=True,
                         with_max_attentive_match=True, with_no_match=False, 
-                        concat_context=False, tied_aggre=True, rl_matches=[0,1,2], cond_training=False, debug=False):
+                        concat_context=False, tied_aggre=True, rl_matches=[0,1,2], cond_training=False, efficient=False, 
+                        debug=False):
 
     '''
     rl_matches options:
@@ -27,12 +37,23 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)
     qp_cosine_matrix_transpose = tf.transpose(qp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
 
-    cp_cosine_matrix = cal_relevancy_matrix(in_choice_repres, in_passage_repres) # [batch_size, passage_len, question_len]
-    cp_cosine_matrix = mask_relevancy_matrix(cp_cosine_matrix, choice_mask, mask)
+    tiled_in_passage_repres=maybe_tile(tiled_in_passage_repres,efficient)
+    tiled_mask=maybe_tile(tiled_mask,efficient)
+    # if efficient:
+    #     tiled_in_passage_repres=tf.tile(in_passage_repres,[num_option,1,1])
+    #     tiled_mask=tf.tile(tiled_mask,[num_option,1])
+    # else:
+    #     tiled_in_passage_repres=in_passage_repres
+    #     tiled_mask=mask
+
+    cp_cosine_matrix = cal_relevancy_matrix(in_choice_repres, tiled_in_passage_repres) # [batch_size, passage_len, question_len]
+    cp_cosine_matrix = mask_relevancy_matrix(cp_cosine_matrix, choice_mask, tiled_mask)
     cp_cosine_matrix_transpose = tf.transpose(cp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
 
     word_level_max_pooling_pq = tf.reduce_max(qp_cosine_matrix_transpose, axis=2,keep_dims=True)
     word_level_avg_pooling_pq = tf.reduce_mean(qp_cosine_matrix_transpose, axis=2,keep_dims=True)
+    word_level_max_pooling_pq = maybe_tile(word_level_max_pooling_pq,efficient)
+    word_level_avg_pooling_pq = maybe_tile(word_level_max_pooling_pq,efficient)
     word_level_max_pooling_pc = tf.reduce_max(cp_cosine_matrix_transpose, axis=2,keep_dims=True)
     word_level_avg_pooling_pc = tf.reduce_mean(cp_cosine_matrix_transpose, axis=2,keep_dims=True)
 
@@ -43,7 +64,9 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
             max_attentive_rep = cal_attentive_matching(in_base_repres, max_att, max_att_decomp_params)# [batch_size, passage_len, decompse_dim]
             return max_attentive_rep
         word_level_max_attentive_pq=max_attentive(in_passage_repres,in_question_repres,qp_cosine_matrix_transpose,"pq_word_max_att_decomp_params")
-        word_level_max_attentive_pc=max_attentive(in_passage_repres,in_choice_repres,cp_cosine_matrix_transpose,"pc_word_max_att_decomp_params")
+        word_level_max_attentive_pc=max_attentive(tiled_in_passage_repres,in_choice_repres,cp_cosine_matrix_transpose,"pc_word_max_att_decomp_params")
+        word_level_max_attentive_pq=maybe_tile(word_level_max_attentive_pq,efficient)
+
 
     if 0 in rl_matches:
         if MP_dim>0 and with_max_attentive_match:

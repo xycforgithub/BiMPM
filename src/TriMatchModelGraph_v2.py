@@ -16,7 +16,8 @@ class TriMatchModelGraph(object):
                  match_to_passage=True, match_to_question=False, match_to_choice=False, with_no_match=False,
                  with_full_match=True, with_maxpool_match=True, with_attentive_match=True, with_max_attentive_match=True, use_options=False, 
                  num_options=-1, verbose=False, matching_option=0, 
-                 concat_context=False, tied_aggre=False, rl_training_method='contrastive', rl_matches=[0,1,2], cond_training=False):
+                 concat_context=False, tied_aggre=False, rl_training_method='contrastive', rl_matches=[0,1,2], cond_training=False,
+                 efficient=False):
         ''' Matching Options:
         0:a1=q->p, a2=c->p, [concat(a1->a2,a2->a1)]
         1:a1=q->p, a2=c->p, [a1->a2,a2->a1]
@@ -132,13 +133,13 @@ class TriMatchModelGraph(object):
             self.in_passage_chars = tf.placeholder(tf.int32, [None, None, None]) # [batch_size, passage_len, p_char_len]
             self.in_choice_chars = tf.placeholder(tf.int32, [None, None, None]) # [batch_size, passage_len, p_char_len]
             input_shape = tf.shape(self.in_question_chars)
-            batch_size = input_shape[0]
             question_len = input_shape[1]
             q_char_len = input_shape[2]
             input_shape = tf.shape(self.in_passage_chars)
             passage_len = input_shape[1]
             p_char_len = input_shape[2]
             input_shape = tf.shape(self.in_choice_chars)
+            batch_size = input_shape[0]
             choice_len = input_shape[1]
             c_char_len = input_shape[2]
 
@@ -173,21 +174,21 @@ class TriMatchModelGraph(object):
                 question_char_outputs = my_rnn.dynamic_rnn(char_lstm_cell, in_question_char_repres, 
                         sequence_length=question_char_lengths,dtype=tf.float32)[0] # [batch_size*question_len, q_char_len, char_lstm_dim]
                 question_char_outputs = question_char_outputs[:,-1,:]
-                question_char_outputs = tf.reshape(question_char_outputs, [batch_size, question_len, char_lstm_dim])
+                question_char_outputs = tf.reshape(question_char_outputs, [-1, question_len, char_lstm_dim])
              
                 tf.get_variable_scope().reuse_variables()
                 # passage representation
                 passage_char_outputs = my_rnn.dynamic_rnn(char_lstm_cell, in_passage_char_repres, 
                         sequence_length=passage_char_lengths,dtype=tf.float32)[0] # [batch_size*question_len, q_char_len, char_lstm_dim]
                 passage_char_outputs = passage_char_outputs[:,-1,:]
-                passage_char_outputs = tf.reshape(passage_char_outputs, [batch_size, passage_len, char_lstm_dim])
+                passage_char_outputs = tf.reshape(passage_char_outputs, [-1, passage_len, char_lstm_dim])
              
                 tf.get_variable_scope().reuse_variables()
                 # choice representation
                 choice_char_outputs = my_rnn.dynamic_rnn(char_lstm_cell, in_choice_char_repres, 
                         sequence_length=choice_char_lengths,dtype=tf.float32)[0] # [batch_size*question_len, q_char_len, char_lstm_dim]
                 choice_char_outputs = choice_char_outputs[:,-1,:]
-                choice_char_outputs = tf.reshape(choice_char_outputs, [batch_size, choice_len, char_lstm_dim])
+                choice_char_outputs = tf.reshape(choice_char_outputs, [-1, choice_len, char_lstm_dim])
 
 
             in_question_repres.append(question_char_outputs)

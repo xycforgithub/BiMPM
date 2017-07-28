@@ -1,6 +1,6 @@
 import numpy as np
 import re
-
+num_options=4
 def make_batches(size, batch_size):
     nb_batch = int(np.ceil(size/float(batch_size)))
     return [(i*batch_size, min(size, (i+1)*batch_size)) for i in range(0, nb_batch)] # zgwang: starting point of each batch
@@ -260,7 +260,7 @@ def gen_split_indx_mat(batch1_lengths,batch2_lengths):
 class TriMatchDataStream(SentenceMatchDataStream):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
                  isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200,max_hyp_length=100, max_choice_length=None,
-                 tolower=False, gen_concat_mat=False, gen_split_mat=False):
+                 tolower=False, gen_concat_mat=False, gen_split_mat=False, efficient=False):
         if max_choice_length is None:
             max_choice_length=max_hyp_length
         instances = []
@@ -361,37 +361,52 @@ class TriMatchDataStream(SentenceMatchDataStream):
             for i in range(batch_start, batch_end):
                 (label, sentence1, sentence2,sentence3, label_id, word_idx_1, word_idx_2,word_idx_3, char_matrix_idx_1, char_matrix_idx_2,
                         char_matrix_idx_3, POS_idx_1, POS_idx_2, NER_idx_1, NER_idx_2) = instances[i]
-                label_batch.append(label)
-                sent1_batch.append(sentence1)
-                sent2_batch.append(sentence2)
+                if (not efficient) or i % 4==0:
+                    sent1_batch.append(sentence1)
+                    sent2_batch.append(sentence2)
+                    word_idx_1_batch.append(word_idx_1)
+                    word_idx_2_batch.append(word_idx_2)
+                    char_matrix_idx_1_batch.append(char_matrix_idx_1)
+                    char_matrix_idx_2_batch.append(char_matrix_idx_2)
+                    sent1_length_batch.append(len(word_idx_1))
+                    sent2_length_batch.append(len(word_idx_2))
+                    sent1_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_1])
+                    sent2_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_2])
+                
                 sent3_batch.append(sentence3)
+                label_batch.append(label)
                 label_id_batch.append(label_id)
-                word_idx_1_batch.append(word_idx_1)
-                word_idx_2_batch.append(word_idx_2)
                 word_idx_3_batch.append(word_idx_3)
-                char_matrix_idx_1_batch.append(char_matrix_idx_1)
-                char_matrix_idx_2_batch.append(char_matrix_idx_2)
                 char_matrix_idx_3_batch.append(char_matrix_idx_3)
-                sent1_length_batch.append(len(word_idx_1))
-                sent2_length_batch.append(len(word_idx_2))
                 sent3_length_batch.append(len(word_idx_3))
-                sent1_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_1])
-                sent2_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_2])
                 sent3_char_length_batch.append([len(cur_char_idx) for cur_char_idx in char_matrix_idx_3])
 
 
-                if POS_vocab is not None: 
-                    POS_idx_1_batch.append(POS_idx_1)
-                    POS_idx_2_batch.append(POS_idx_2)
+                # if POS_vocab is not None: 
+                #     POS_idx_1_batch.append(POS_idx_1)
+                #     POS_idx_2_batch.append(POS_idx_2)
 
-                if NER_vocab is not None: 
-                    NER_idx_1_batch.append(NER_idx_1)
-                    NER_idx_2_batch.append(NER_idx_2)
-                
-                
+                # if NER_vocab is not None: 
+                #     NER_idx_1_batch.append(NER_idx_1)
+                #     NER_idx_2_batch.append(NER_idx_2)
             cur_batch_size = len(label_batch)
             if cur_batch_size ==0: continue
+    
+            if efficient:
+                num_question=cur_batch_size//num_options
+                idx_list=[]
+                for optid in range(num_options):
+                    for qid in range(num_questions):
+                        idx_list.append(qid*num_options+optid)
+                sent3_batch=sent3_batch[idx_list]
+                label_batch=label_batch[idx_list]
+                label_id_batch=label_id_batch[idx_list]
+                word_idx_3_batch=word_idx_3_batch[idx_list]
+                char_matrix_idx_3_batch=char_matrix_idx_3_batch[idx_list]
+                sent3_length_batch=sent3_length_batch[idx_list]
+                sent3_char_length_batch=sent3_char_length_batch[idx_list]
 
+            
             # padding
             max_sent1_length = np.max(sent1_length_batch)
             max_sent2_length = np.max(sent2_length_batch)
@@ -422,9 +437,10 @@ class TriMatchDataStream(SentenceMatchDataStream):
             sent3_length_batch = np.array(sent3_length_batch)
 
             if gen_concat_mat:
-                concat_mat_batch, _=gen_concat_indx_mat(sent2_length_batch,sent3_length_batch)
-            if gen_split_mat:
-                split_mat_batch_q, split_mat_batch_c=gen_split_indx_mat(sent2_length_batch,sent3_length_batch)
+                tiled_sent2_length_batch=np.tile(sent2_length_batch,num_options)
+                concat_mat_batch, _=gen_concat_indx_mat(tiled_sent2_length_batch,sent3_length_batch)
+                if gen_split_mat:
+                    split_mat_batch_q, split_mat_batch_c=gen_split_indx_mat(tiled_sent2_length_batch,sent3_length_batch)
 
             sent1_char_length_batch = pad_2d_matrix(sent1_char_length_batch, max_length=max_sent1_length)
             sent2_char_length_batch = pad_2d_matrix(sent2_char_length_batch, max_length=max_sent2_length)

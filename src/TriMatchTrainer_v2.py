@@ -272,7 +272,7 @@ def main(_):
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
                                               max_choice_length=FLAGS.max_choice_length, tolower=tolower,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient)
                                     
     devDataStream = TriMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -281,7 +281,7 @@ def main(_):
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
                                               max_choice_length=FLAGS.max_choice_length, tolower=tolower,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient)
 
     testDataStream = TriMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -290,7 +290,7 @@ def main(_):
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
                                               max_choice_length=FLAGS.max_choice_length, tolower=tolower,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient)
 
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
     print('Number of instances in devDataStream: {}'.format(devDataStream.get_num_instance()))
@@ -613,6 +613,7 @@ if __name__ == '__main__':
     parser.add_argument('--rl_training_method', default='contrastive', help='Method of RL to train gate.')
     parser.add_argument('--rl_matches', default='[0,1,2]', help='list of RL matcher templates.')
     parser.add_argument('--cond_training', default=False, help='Construct a graph conditional on is_training sign.', action='store_true')
+    parser.add_argument('--efficient',default=False, help='Improve efficiency by processing passage only once.', action='store_true')
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()
