@@ -11,9 +11,10 @@ def maybe_tile(in_tensor, efficient):
         rank=len(in_tensor.get_shape())
         tilenum=[1 for i in range(rank)]
         tilenum[0]=num_option
-        output=tf.tile(in_tensor,tilenum)
+        return tf.tile(in_tensor,tilenum)
     else:
-        output=in_tensor
+        return in_tensor
+
 def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         question_lengths, passage_lengths, choice_lengths, 
                         question_mask, mask, choice_mask, 
@@ -21,7 +22,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway, with_full_match=True, with_maxpool_match=True, with_attentive_match=True,
-                        with_max_attentive_match=True, with_no_match=False, 
+                        with_max_attentive_match=True,
                         concat_context=False, tied_aggre=True, rl_matches=[0,1,2], cond_training=False, efficient=False, debug=False):
 
     '''
@@ -42,8 +43,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     if 0 in rl_matches:
         qc_lengths=question_lengths+choice_lengths
 
-    tiled_in_passage_repres=maybe_tile(tiled_in_passage_repres,efficient)
-    tiled_mask=maybe_tile(tiled_mask,efficient)
+    tiled_in_passage_repres=maybe_tile(in_passage_repres,efficient)
+    tiled_mask=maybe_tile(mask,efficient)
     tiled_question_lengths=maybe_tile(question_lengths,efficient)
 
     # if efficient:
