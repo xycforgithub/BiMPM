@@ -124,7 +124,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         qc_lengths=question_lengths+choice_lengths
 
                     if concat_context:
-                        in_qc_repres=my_rnn.concatenate_sents(in_question_repres,in_choice_repres,concat_idx_mat)
+                        in_qc_repres=my_rnn.concatenate_sents(tiled_in_passage_repres,in_choice_repres,concat_idx_mat)
                         # question representation
                         (qc_context_representation_fw, qc_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                             context_lstm_cell_fw, context_lstm_cell_bw, in_qc_repres, dtype=tf.float32, 
@@ -140,6 +140,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
 
                         # passage representation
+
+                        #TODO: test usage of reuse
                         tf.get_variable_scope().reuse_variables()
                         (passage_context_representation_fw, passage_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                             context_lstm_cell_fw, context_lstm_cell_bw, in_passage_repres, dtype=tf.float32, 
