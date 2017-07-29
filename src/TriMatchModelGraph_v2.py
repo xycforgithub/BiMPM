@@ -324,9 +324,10 @@ class TriMatchModelGraph(object):
 
             self.prob=tf.add_n(weighted_probs)
             if use_options:
-                gold_matrix=tf.reshape(self.truth, [-1,num_options])
                 if efficient:
-                    gold_matrix=tf.transpose(gold_matrix)
+                    gold_matrix=tf.transpose(tf.reshape(self.truth,[num_options,-1]))
+                else:
+                    gold_matrix=tf.reshape(self.truth, [-1,num_options])
                 gold_matrix=tf.cast(gold_matrix,tf.float32)
                 correct=tf.equal(tf.argmax(self.prob,1),tf.argmax(gold_matrix,1))
             else:

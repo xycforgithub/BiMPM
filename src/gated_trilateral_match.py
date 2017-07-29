@@ -289,8 +289,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                     if rl_match_opt==0:
                         current_matcher.add_question_repre(p_qc_matching_vectors,p_qc_matching_dim,extend=True)
                     if rl_match_opt==1:
-                        current_matcher.add_question_repre(question_context_representation_fw, context_lstm_dim)
-                        current_matcher.add_question_repre(question_context_representation_bw, context_lstm_dim)
+                        current_matcher.add_question_repre(tiled_question_context_representation_fw, context_lstm_dim)
+                        current_matcher.add_question_repre(tiled_question_context_representation_bw, context_lstm_dim)
                         if 2 in rl_matches:
                             current_matcher.add_choice_repre(p_c_matching_vectors_fw_concat, p_c_matching_dim_fw)
                             current_matcher.add_choice_repre(p_c_matching_vectors_bw_concat, p_c_matching_dim_bw)
@@ -301,7 +301,6 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         current_matcher.add_question_repre(c_q_postmatching_vectors,c_q_postmatching_dim, extend=True)
                         current_matcher.add_choice_repre(q_c_postmatching_vectors,q_c_postmatching_dim, extend=True)
     
-    # TODO: add tied LSTM weights
     added_agg_highway=False
 
     for mid,matcher in enumerate(all_match_templates):
@@ -313,15 +312,16 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
         if matcher.choice_repre_dim>0:
             matching_tensors.append(matcher.choice_repre)
 
-        reuse = added_agg_highway and tied_aggre
+        reuse = True if added_agg_highway and tied_aggre else None
+
 
         if with_match_highway:
             matcher.add_highway_layer(highway_layer_num, tied_aggre=tied_aggre, reuse=reuse)
-        agg_dim=matcher.aggregate(aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=tied_aggre, reuse=False)
+        agg_dim=matcher.aggregate(aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=tied_aggre, reuse=reuse)
         print('aggregation dim=',agg_dim)
         if with_aggregation_highway:
             if not added_agg_highway:
-                matcher.add_aggregation_highway(highway_layer_num, tied_aggre=tied_aggre, reuse=False)
+                matcher.add_aggregation_highway(highway_layer_num, tied_aggre=tied_aggre, reuse=None)
                 added_agg_highway=True
             else:
                 matcher.add_aggregation_highway(highway_layer_num, tied_aggre=tied_aggre, reuse=True)

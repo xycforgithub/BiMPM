@@ -48,7 +48,7 @@ class Matcher:
         else:
             self.choice_repre.append(choice_repre)
         self.choice_repre_dim+=choice_dim
-    def add_highway_layer(self,highway_layer_num,tied_aggre=False, reuse=False):
+    def add_highway_layer(self,highway_layer_num,tied_aggre=False, reuse=None):
         if tied_aggre:
             name='matching_highway'
         else:
@@ -59,7 +59,7 @@ class Matcher:
         if self.choice_repre_dim>0:
             with tf.variable_scope("{}_choice".format(name),reuse=reuse):
                 self.choice_repre = multi_highway_layer(self.choice_repre, self.choice_repre_dim, highway_layer_num)
-    def aggregate(self,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False, reuse=False):
+    def aggregate(self,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False, reuse=None):
         self.aggregation_representation = []
         self.aggregation_dim = 0
 
@@ -132,12 +132,12 @@ class Matcher:
         #
         self.aggregation_representation = tf.concat(self.aggregation_representation, 1) # [batch_size, self.aggregation_dim]
         return self.aggregation_dim
-    def add_aggregation_highway(self,highway_layer_num, tied_aggre=False, reuse=False):
+    def add_aggregation_highway(self,highway_layer_num, tied_aggre=False, reuse=None):
             # ======Highway layer======
-        if tied_aggre:
-            name='aggre_highway'
-        else:
-            name='aggre_highway_{}'.format(self.matching_id)
+        # if tied_aggre:
+        name='aggre_highway'
+        # else:
+        #     name='aggre_highway_{}'.format(self.matching_id)
         with tf.variable_scope(name,reuse=reuse):
             agg_shape = tf.shape(self.aggregation_representation)
             batch_size = agg_shape[0]

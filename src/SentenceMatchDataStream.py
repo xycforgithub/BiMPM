@@ -393,19 +393,18 @@ class TriMatchDataStream(SentenceMatchDataStream):
             if cur_batch_size ==0: continue
     
             if efficient:
-                num_question=cur_batch_size//num_options
+                num_questions=cur_batch_size//num_options
                 idx_list=[]
                 for optid in range(num_options):
                     for qid in range(num_questions):
                         idx_list.append(qid*num_options+optid)
-                sent3_batch=sent3_batch[idx_list]
-                label_batch=label_batch[idx_list]
-                label_id_batch=label_id_batch[idx_list]
-                word_idx_3_batch=word_idx_3_batch[idx_list]
-                char_matrix_idx_3_batch=char_matrix_idx_3_batch[idx_list]
-                sent3_length_batch=sent3_length_batch[idx_list]
-                sent3_char_length_batch=sent3_char_length_batch[idx_list]
-
+                sent3_batch=[sent3_batch[i] for i in idx_list]
+                label_batch=[label_batch[i] for i in idx_list]
+                label_id_batch=[label_id_batch[i] for i in idx_list]
+                word_idx_3_batch=[word_idx_3_batch[i] for i in idx_list]
+                char_matrix_idx_3_batch=[char_matrix_idx_3_batch[i] for i in idx_list]
+                sent3_length_batch=[sent3_length_batch[i] for i in idx_list]
+                sent3_char_length_batch=[sent3_char_length_batch[i] for i in idx_list]
             
             # padding
             max_sent1_length = np.max(sent1_length_batch)
