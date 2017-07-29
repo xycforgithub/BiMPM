@@ -248,7 +248,8 @@ class TriMatchModelGraph(object):
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context=concat_context, tied_aggre=tied_aggre, rl_matches=rl_matches, cond_training=cond_training, debug=True)
+                        concat_context=concat_context, tied_aggre=tied_aggre, rl_matches=rl_matches, cond_training=cond_training,
+                        efficient=efficient, debug=True)
             else:
                 (match_representation, match_dim, self.matching_vectors) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
@@ -266,7 +267,8 @@ class TriMatchModelGraph(object):
                         MP_dim, input_dim, context_layer_num, context_lstm_dim,self.is_training,dropout_rate,
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num, 
                         with_aggregation_highway, with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
-                        concat_context, tied_aggre, rl_matches, cond_training)
+                        concat_context=concat_context, tied_aggre=tied_aggre, rl_matches=rl_matches,
+                        cond_training=cond_training,efficient=efficient)
             else:
                 (match_representation, match_dim) = match_utils.trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         self.question_lengths, self.passage_lengths, self.choice_lengths, question_mask, mask, choice_mask, MP_dim, input_dim, 
@@ -275,7 +277,7 @@ class TriMatchModelGraph(object):
                         with_full_match, with_maxpool_match, with_attentive_match, with_max_attentive_match,
                         match_to_passage, match_to_question, match_to_choice, with_no_match, matching_option=matching_option)
         with tf.variable_scope('rl_decision_gate'):
-            if use_options:
+            if use_options and (not efficient):
                 gate_input=gate_input[::num_options,:]
             w_gate=tf.get_variable('w_gate',[2*context_lstm_dim,len(rl_matches)],dtype=tf.float32)
             b_gate=tf.get_variable('b_gate',[len(rl_matches)],dtype=tf.float32)
@@ -309,9 +311,10 @@ class TriMatchModelGraph(object):
             weighted_probs=[]
             weighted_log_probs=[]
             all_probs=[]
+            layout='question_first' if efficient else 'choice_first'
             for mid,matcher in enumerate(all_match_templates):
 
-                matcher.add_softmax_pred(w_0,b_0,w_1,b_1, self.is_training, dropout_rate, use_options, num_options)
+                matcher.add_softmax_pred(w_0,b_0,w_1,b_1, self.is_training, dropout_rate, use_options, num_options, layout=layout)
                 all_probs.append(matcher.prob)
                 weighted_probs.append(tf.multiply(matcher.prob, sliced_gate_probs[mid]))
                 weighted_log_probs.append(tf.add(matcher.log_prob, sliced_gate_log_probs[mid]))
@@ -322,6 +325,8 @@ class TriMatchModelGraph(object):
             self.prob=tf.add_n(weighted_probs)
             if use_options:
                 gold_matrix=tf.reshape(self.truth, [-1,num_options])
+                if efficient:
+                    gold_matrix=tf.transpose(gold_matrix)
                 gold_matrix=tf.cast(gold_matrix,tf.float32)
                 correct=tf.equal(tf.argmax(self.prob,1),tf.argmax(gold_matrix,1))
             else:
@@ -370,8 +375,12 @@ class TriMatchModelGraph(object):
 
             self.final_logits=logits
             if use_options:
-                logits=tf.reshape(logits,[-1,num_options])
-                gold_matrix=tf.reshape(self.truth,[-1,num_options])
+                if efficient:
+                    logits=tf.transpose(tf.reshape(logits,[num_options,-1]))
+                    gold_matrix = tf.transpose(tf.reshape(self.truth, [-1, num_options]))
+                else:
+                    logits=tf.reshape(logits,[-1,num_options])
+                    gold_matrix = tf.reshape(self.truth, [-1, num_options])
 
                 self.prob = tf.nn.softmax(logits)
                 

@@ -48,14 +48,18 @@ class Matcher:
         else:
             self.choice_repre.append(choice_repre)
         self.choice_repre_dim+=choice_dim
-    def add_highway_layer(self,highway_layer_num, name,reuse=False):
+    def add_highway_layer(self,highway_layer_num,tied_aggre=False, reuse=False):
+        if tied_aggre:
+            name='matching_highway'
+        else:
+            name='matching_highway_{}'.format(self.matching_id)
         if self.question_repre_dim>0:
             with tf.variable_scope("{}_ques".format(name),reuse=reuse):
                 self.question_repre = multi_highway_layer(self.question_repre, self.question_repre_dim, highway_layer_num)
         if self.choice_repre_dim>0:
-            with tf.variable_scope("{}.choice".format(name),reuse=reuse):
+            with tf.variable_scope("{}_choice".format(name),reuse=reuse):
                 self.choice_repre = multi_highway_layer(self.choice_repre, self.choice_repre_dim, highway_layer_num)
-    def aggregate(self,name,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, reuse=False):
+    def aggregate(self,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False, reuse=False):
         self.aggregation_representation = []
         self.aggregation_dim = 0
 
@@ -91,9 +95,15 @@ class Matcher:
         with tf.variable_scope('aggregation_layer'):
             for i in range(aggregation_layer_num): # support multiple aggregation layer
                 for rep_id in range(len(aggregation_inputs)):
-                    with tf.variable_scope('{}-{}-{}'.format(name,rep_id, i), reuse=reuse):
-                        aggregation_lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
-                        aggregation_lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim)
+                    if tied_aggre:
+                        name='aggre_layer{}'.format(i)
+                        if rep_id>0:
+                            reuse=True
+                    else:
+                        name='aggre_layer{}_matcher{}_part{}'.format(i,self.matching_id,rep_id)
+                    with tf.variable_scope(name, reuse=reuse):
+                        aggregation_lstm_cell_fw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim,reuse=reuse)
+                        aggregation_lstm_cell_bw = tf.contrib.rnn.BasicLSTMCell(aggregation_lstm_dim,reuse=reuse)
                         if self.cond_training:
                             aggregation_lstm_cell_fw=SwitchableDropoutWrapper(aggregation_lstm_cell_fw, is_training, output_keep_prob=(1-dropout_rate))
                         elif is_training:
@@ -122,15 +132,20 @@ class Matcher:
         #
         self.aggregation_representation = tf.concat(self.aggregation_representation, 1) # [batch_size, self.aggregation_dim]
         return self.aggregation_dim
-    def add_aggregation_highway(self,highway_layer_num, name, reuse=False):
+    def add_aggregation_highway(self,highway_layer_num, tied_aggre=False, reuse=False):
             # ======Highway layer======
+        if tied_aggre:
+            name='aggre_highway'
+        else:
+            name='aggre_highway_{}'.format(self.matching_id)
         with tf.variable_scope(name,reuse=reuse):
             agg_shape = tf.shape(self.aggregation_representation)
             batch_size = agg_shape[0]
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [1, batch_size, self.aggregation_dim])
             self.aggregation_representation = multi_highway_layer(self.aggregation_representation, self.aggregation_dim, highway_layer_num)
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [batch_size, self.aggregation_dim])
-    def add_softmax_pred(self,w_0,b_0,w_1,b_1, is_training, dropout_rate, use_options=True, num_options=4):
+    def add_softmax_pred(self,w_0,b_0,w_1,b_1, is_training, dropout_rate, use_options=True, num_options=4, layout='choice_first'):
+        # Layout = choice_first or question_first
         logits = tf.matmul(self.aggregation_representation, w_0) + b_0
         logits = tf.tanh(logits)
         if self.cond_training:
@@ -143,7 +158,10 @@ class Matcher:
 
         self.logits=logits
         if use_options:
-            logits=tf.reshape(logits,[-1,num_options])
+            if layout=='choice_first':
+                logits=tf.reshape(logits,[-1,num_options])
+            else:
+                logits=tf.transpose(tf.reshape(logits,[num_options,-1]))
 
             self.prob = tf.nn.softmax(logits)
             self.log_prob=tf.nn.log_softmax(logits)

@@ -323,7 +323,7 @@ def main(_):
                  use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
                  matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
                  tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
-                 cond_training=FLAGS.cond_training)
+                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient)
 
 
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
@@ -352,7 +352,7 @@ def main(_):
                          with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
                          use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match,
                          matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
-                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches)
+                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, efficient=FLAGS.efficient)
 
                 
         initializer = tf.global_variables_initializer()
@@ -538,7 +538,7 @@ def main(_):
                  use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
                  matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
                  tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
-                 cond_training=FLAGS.cond_training)
+                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient)
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
