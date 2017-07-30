@@ -129,6 +129,7 @@ class Matcher:
                             self.aggregation_representation.append(fw_rep)
                             self.aggregation_representation.append(bw_rep)
                             self.aggregation_dim += 2* aggregation_lstm_dim
+                        aggregation_inputs[rep_id]=tf.concat(cur_aggregation_representation,2)
         #
         self.aggregation_representation = tf.concat(self.aggregation_representation, 1) # [batch_size, self.aggregation_dim]
         return self.aggregation_dim

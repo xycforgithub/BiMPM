@@ -323,7 +323,7 @@ def main(_):
                  use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
                  matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
                  tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
-                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient)
+                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
 
 
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
@@ -352,7 +352,8 @@ def main(_):
                          with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
                          use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match,
                          matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
-                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, efficient=FLAGS.efficient)
+                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, efficient=FLAGS.efficient, 
+                         tied_match=FLAGS.tied_match)
 
                 
         initializer = tf.global_variables_initializer()
@@ -538,7 +539,7 @@ def main(_):
                  use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
                  matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
                  tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
-                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient)
+                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
@@ -610,6 +611,7 @@ if __name__ == '__main__':
     parser.add_argument('--create_new_model',default=False,help='Create new model regardless of the old one.',action='store_true')
     parser.add_argument('--concat_context', default=False, help='Concat question & choice and feed into context LSTM.', action='store_true')
     parser.add_argument('--tied_aggre', default=False,help='Tie aggregation layer weights.', action='store_true')
+    parser.add_argument('--tied_match',default=False,help='Tie matching weights across different matchers.',action='store_true')
     parser.add_argument('--rl_training_method', default='contrastive', help='Method of RL to train gate.')
     parser.add_argument('--rl_matches', default='[0,1,2]', help='list of RL matcher templates.')
     parser.add_argument('--cond_training', default=False, help='Construct a graph conditional on is_training sign.', action='store_true')

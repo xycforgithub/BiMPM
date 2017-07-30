@@ -4,6 +4,7 @@ import my_rnn
 from matcher import Matcher
 from match_utils import *
 from my_rnn import SwitchableDropoutWrapper
+from memory import Memory
 
 num_option=4
 def maybe_tile(in_tensor, efficient):
@@ -23,7 +24,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         with_match_highway,aggregation_layer_num, aggregation_lstm_dim,highway_layer_num,
                         with_aggregation_highway, with_full_match=True, with_maxpool_match=True, with_attentive_match=True,
                         with_max_attentive_match=True,
-                        concat_context=False, tied_aggre=False, rl_matches=[0,1,2], cond_training=False, efficient = False, debug=False):
+                        concat_context=False, tied_aggre=False, rl_matches=[0,1,2], cond_training=False, efficient = False, 
+                        tied_match=False, construct_memory=False, debug=False):
 
     '''
     rl_matches options:
@@ -61,6 +63,10 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
     word_level_max_pooling_pq = tf.reduce_max(qp_cosine_matrix_transpose, axis=2,keep_dims=True)
     word_level_avg_pooling_pq = tf.reduce_mean(qp_cosine_matrix_transpose, axis=2,keep_dims=True)
+    untiled_word_level_max_pooling_qp=tf.reduce_max(qp_cosine_matrix, axis=2,keep_dims=True)
+    untiled_word_level_avg_pooling_qp=tf.reduce_mean(qp_cosine_matrix, axis=2,keep_dims=True)
+
+
     word_level_max_pooling_pq = maybe_tile(word_level_max_pooling_pq,efficient)
     word_level_avg_pooling_pq = maybe_tile(word_level_avg_pooling_pq,efficient)
     word_level_max_pooling_pc = tf.reduce_max(cp_cosine_matrix_transpose, axis=2,keep_dims=True)
@@ -73,6 +79,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
             max_attentive_rep = cal_attentive_matching(in_base_repres, max_att, max_att_decomp_params)# [batch_size, passage_len, decompse_dim]
             return max_attentive_rep
         word_level_max_attentive_pq=max_attentive(in_passage_repres,in_question_repres,qp_cosine_matrix_transpose,"pq_word_max_att_decomp_params")
+        untiled_word_level_max_attentive_qp = max_attentive(in_question_repres, in_passage_repres, qp_cosine_matrix,
+                                                    "qp_word_max_att_decomp_params")
         word_level_max_attentive_pc=max_attentive(tiled_in_passage_repres,in_choice_repres,cp_cosine_matrix_transpose,"pc_word_max_att_decomp_params")
         word_level_max_attentive_pq=maybe_tile(word_level_max_attentive_pq,efficient)
 
@@ -88,6 +96,12 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
             qc_basic_dim=4
         qc_basic_embedding=my_rnn.concatenate_sents(question_concat_basic_embedding,choice_concat_basic_embedding, concat_idx_mat)
 
+
+    if construct_memory:
+        memory=Memory(passage_lengths,cond_training=cond_training)
+        memory.add_memory_repre(untiled_word_level_max_pooling_qp,1)
+        memory.add_memory_repre(untiled_word_level_avg_pooling_qp,1)
+        memory.add_memory_repre(untiled_word_level_max_attentive_qp,MP_dim)
 
 
     all_match_templates=[]
@@ -219,9 +233,12 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                 gate_input=tf.concat([question_context_representation_fw[:,-1,:],question_context_representation_bw[:,0,:]],1, name='gate_input')
 
 
-
+                matched=False
                 if 0 in rl_matches:
-                    with tf.variable_scope('p_qc_matching'):
+                    scope_name='first_matching' if tied_match else 'p_qc_matching'
+                    reuse=True if tied_match and matched else None
+                    matched=True
+                    with tf.variable_scope(scope_name,reuse=reuse):
                         (p_qc_matching_vectors,p_qc_matching_dim) = match_passage_with_question(
                                 qc_context_representation_fw, qc_context_representation_bw,qc_mask,
                                 tiled_passage_context_representation_fw, tiled_passage_context_representation_bw, tiled_mask,
@@ -229,7 +246,10 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                                 with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                                 with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
                 if 1 in rl_matches or 2 in rl_matches:
-                    with tf.variable_scope('p_c_matching'):
+                    scope_name='first_matching' if tied_match else 'p_c_matching'
+                    reuse=True if tied_match and matched else None
+                    matched=True
+                    with tf.variable_scope(scope_name,reuse=reuse):
                         (p_c_matching_vectors_fw, p_c_matching_vectors_bw, p_c_matching_dim_fw, p_c_matching_dim_bw) = \
                                 match_passage_with_question_direct(
                                 choice_context_representation_fw, choice_context_representation_bw,choice_mask,
@@ -239,8 +259,11 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                                 with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match,
                                 with_direction=True)
                 if 2 in rl_matches:
+                    scope_name='first_matching' if tied_match else 'p_q_matching'
+                    reuse=True if tied_match and matched else None
+                    matched=True
                     if concat_context:
-                        with tf.variable_scope('p_q_matching'):
+                        with tf.variable_scope(scope_name,reuse=reuse):
                             (p_q_matching_vectors_fw, p_q_matching_vectors_bw, p_q_matching_dim_fw, p_q_matching_dim_bw) = \
                                     match_passage_with_question_direct(
                                     tiled_question_context_representation_fw, tiled_question_context_representation_bw,tiled_question_mask,
@@ -252,7 +275,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         p_q_matching_vectors_fw_concat = tf.concat(p_q_matching_vectors_fw, 2)
                         p_q_matching_vectors_bw_concat = tf.concat(p_q_matching_vectors_bw, 2)
                     else:
-                        with tf.variable_scope('p_q_matching'):
+                        with tf.variable_scope(scope_name,reuse=reuse):
                             (p_q_matching_vectors_fw, p_q_matching_vectors_bw, p_q_matching_dim_fw, p_q_matching_dim_bw) = \
                                     match_passage_with_question_direct(
                                     question_context_representation_fw, question_context_representation_bw,question_mask,
@@ -267,15 +290,17 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                     # Multi-perspective matching
                     p_c_matching_vectors_fw_concat=tf.concat(p_c_matching_vectors_fw,2)
                     p_c_matching_vectors_bw_concat=tf.concat(p_c_matching_vectors_bw,2)
-
-                    with tf.variable_scope('cq_post_MP_matching'):
+                    scope_name='second_matching' if tied_match else 'cq_post_MP_matching'
+                    with tf.variable_scope(scope_name):
                         (c_q_postmatching_vectors, c_q_postmatching_dim) = match_passage_with_question_direct(
                                     p_q_matching_vectors_fw_concat, p_q_matching_vectors_bw_concat, tiled_question_mask,
                                     p_c_matching_vectors_fw_concat, p_c_matching_vectors_bw_concat, choice_mask,                                    
                                     MP_dim, p_q_matching_dim_fw, scope=None,
                                     with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                                     with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
-                    with tf.variable_scope('qc_post_MP_matching'):
+                    scope_name = 'second_matching' if tied_match else 'qc_post_MP_matching'
+                    reuse = True if tied_match else None
+                    with tf.variable_scope(scope_name,reuse=reuse):
                         (q_c_postmatching_vectors, q_c_postmatching_dim) = match_passage_with_question_direct(
                                     p_c_matching_vectors_fw_concat, p_c_matching_vectors_bw_concat, choice_mask,
                                     p_q_matching_vectors_fw_concat, p_q_matching_vectors_bw_concat, tiled_question_mask,
@@ -283,7 +308,19 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                                     with_full_match=with_full_match, with_maxpool_match=with_maxpool_match, 
                                     with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
                 aggre_defined=False
-                
+                if construct_memory:
+                    scope_name='first_matching' if tied_match else 'q_p_matching'
+                    reuse=True if tied_match and matched else None
+                    matched=True
+                    with tf.variable_scope(scope_name,reuse=reuse):
+                        (q_p_matching_vectors, q_p_matching_dim) = match_passage_with_question(
+                                passage_context_representation_fw, passage_context_representation_bw, mask,
+                                question_context_representation_fw, question_context_representation_bw, question_mask,
+                                MP_dim, context_lstm_dim, scope=None,
+                                with_full_match=with_full_match, with_maxpool_match=with_maxpool_match,
+                                with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
+                if construct_memory:
+                    memory.add_memory_repre(q_p_matching_vectors,q_p_matching_dim,extend=True)
                 for (mat_id,rl_match_opt) in enumerate(rl_matches):
                     current_matcher=all_match_templates[mat_id]
                     if rl_match_opt==0:
@@ -312,7 +349,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
         if matcher.choice_repre_dim>0:
             matching_tensors.append(matcher.choice_repre)
 
-        reuse = True if added_agg_highway and tied_aggre else None
+        reuse = True if mid>0 and tied_aggre else None
 
 
         if with_match_highway:
@@ -325,8 +362,17 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                 added_agg_highway=True
             else:
                 matcher.add_aggregation_highway(highway_layer_num, tied_aggre=tied_aggre, reuse=True)
+    if construct_memory:
+        memory.concat(is_training, dropout_rate)
+        matching_tensors.append(memory.question_repre)
+        reuse=True if tied_aggre else None
+        if with_match_highway:
+            memory.add_highway_layer(highway_layer_num, tied_aggre=tied_aggre, reuse=reuse)
+        memory.aggregate(aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=tied_aggre, reuse=reuse)
 
+    ret_list=[all_match_templates, agg_dim, gate_input]
+    if construct_memory:
+        ret_list.append(memory)
     if debug:
-        return all_match_templates, agg_dim, gate_input, matching_tensors
-    else:
-        return all_match_templates, agg_dim, gate_input
+        ret_list.append(matching_tensors)
+    return ret_list
