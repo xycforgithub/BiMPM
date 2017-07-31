@@ -2,14 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7a35df48-ffd2-42e7-9e1e-42f3664022c1" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/BiMPM.iml" afterPath="$PROJECT_DIR$/.idea/BiMPM.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/TriMatchModelGraph_v2.py" afterPath="$PROJECT_DIR$/src/TriMatchModelGraph_v2.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/TriMatchTrainer_v2.py" afterPath="$PROJECT_DIR$/src/TriMatchTrainer_v2.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/gated_trilateral_match.py" afterPath="$PROJECT_DIR$/src/gated_trilateral_match.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/match_utils.py" afterPath="$PROJECT_DIR$/src/match_utils.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/memory.py" afterPath="$PROJECT_DIR$/src/memory.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/reasonet.py" afterPath="$PROJECT_DIR$/src/reasonet.py" />
     </list>
     <ignored path=".idea/" />
@@ -35,21 +27,21 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="TriMatchModelGraph_v2.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="TriMatchModelGraph_v2.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/TriMatchModelGraph_v2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-3094">
-              <caret line="399" column="91" lean-forward="false" selection-start-line="399" selection-start-column="91" selection-end-line="399" selection-end-column="91" />
+            <state relative-caret-position="867">
+              <caret line="632" column="39" lean-forward="true" selection-start-line="632" selection-start-column="39" selection-end-line="632" selection-end-column="39" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="TriMatchTrainer_v2.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="TriMatchTrainer_v2.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/TriMatchTrainer_v2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1">
-              <caret line="335" column="24" lean-forward="false" selection-start-line="335" selection-start-column="24" selection-end-line="335" selection-end-column="24" />
+            <state relative-caret-position="672">
+              <caret line="475" column="0" lean-forward="false" selection-start-line="475" selection-start-column="0" selection-end-line="475" selection-end-column="0" />
               <folding />
             </state>
           </provider>
@@ -58,8 +50,8 @@
       <file leaf-file-name="reasonet.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/reasonet.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="728">
-              <caret line="83" column="55" lean-forward="false" selection-start-line="83" selection-start-column="55" selection-end-line="83" selection-end-column="93" />
+            <state relative-caret-position="116">
+              <caret line="26" column="88" lean-forward="true" selection-start-line="26" selection-start-column="88" selection-end-line="26" selection-end-column="88" />
               <folding>
                 <element signature="e#0#23#0" expanded="true" />
               </folding>
@@ -135,8 +127,8 @@
         <option value="$PROJECT_DIR$/src/TriMatchTrainer_v2.py" />
         <option value="$PROJECT_DIR$/src/gated_trilateral_match.py" />
         <option value="$PROJECT_DIR$/src/memory.py" />
-        <option value="$PROJECT_DIR$/src/reasonet.py" />
         <option value="$PROJECT_DIR$/src/TriMatchModelGraph_v2.py" />
+        <option value="$PROJECT_DIR$/src/reasonet.py" />
       </list>
     </option>
   </component>
@@ -484,14 +476,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/gated_trilateral_match.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-3777">
-          <caret line="102" column="68" lean-forward="false" selection-start-line="102" selection-start-column="68" selection-end-line="102" selection-end-column="68" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/memory.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="898">
@@ -499,14 +483,6 @@
           <folding>
             <element signature="e#0#23#0" expanded="true" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/TriMatchTrainer_v2.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1">
-          <caret line="335" column="24" lean-forward="false" selection-start-line="335" selection-start-column="24" selection-end-line="335" selection-end-column="24" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -530,18 +506,34 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/reasonet.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="728">
-          <caret line="83" column="55" lean-forward="false" selection-start-line="83" selection-start-column="55" selection-end-line="83" selection-end-column="93" />
+        <state relative-caret-position="116">
+          <caret line="26" column="88" lean-forward="true" selection-start-line="26" selection-start-column="88" selection-end-line="26" selection-end-column="88" />
           <folding>
             <element signature="e#0#23#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/gated_trilateral_match.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-3777">
+          <caret line="102" column="68" lean-forward="false" selection-start-line="102" selection-start-column="68" selection-end-line="102" selection-end-column="68" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/TriMatchModelGraph_v2.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-3094">
-          <caret line="399" column="91" lean-forward="false" selection-start-line="399" selection-start-column="91" selection-end-line="399" selection-end-column="91" />
+        <state relative-caret-position="867">
+          <caret line="632" column="39" lean-forward="true" selection-start-line="632" selection-start-column="39" selection-end-line="632" selection-end-column="39" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/TriMatchTrainer_v2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="672">
+          <caret line="475" column="0" lean-forward="false" selection-start-line="475" selection-start-column="0" selection-end-line="475" selection-end-column="0" />
           <folding />
         </state>
       </provider>

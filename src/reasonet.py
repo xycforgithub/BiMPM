@@ -1,10 +1,7 @@
 import tensorflow as tf
-from tensorflow.python.ops import rnn
-import my_rnn
-from match_utils import multi_highway_layer
+
 import match_utils
-from matcher import Matcher
-from memory import Memory
+
 
 VERY_BIG_NUMBER = 1e30
 VERY_SMALL_NUMBER = 1e-30
