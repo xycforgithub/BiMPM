@@ -21,7 +21,8 @@ class TriMatchModelGraph(object):
                  with_max_attentive_match=True, use_options=False,
                  num_options=-1, verbose=False, matching_option=0,
                  concat_context=False, tied_aggre=False, rl_training_method='contrastive', rl_matches=None,
-                 cond_training=False, reasonet_training=False, efficient=False, tied_match=False):
+                 cond_training=False, reasonet_training=False, reasonet_steps=5, reasonet_hidden_dim=128,
+                 reasonet_lambda=10, reasonet_terminate_mode='original', reasonet_keep_first=False, efficient=False, tied_match=False):
         ''' Matching Options:
         0:a1=q->p, a2=c->p, [concat(a1->a2,a2->a1)]
         1:a1=q->p, a2=c->p, [a1->a2,a2->a1]
@@ -41,6 +42,8 @@ class TriMatchModelGraph(object):
         contrastive_imp: Use (r/b-1) instead of (r-b) as in ReasoNet.
 
         '''
+        reasonet_calculated_steps=reasonet_steps+1 if reasonet_keep_first else reasonet_steps
+
         # ======word representation layer======
 
 
@@ -280,6 +283,7 @@ class TriMatchModelGraph(object):
                 self.matching_vectors=ret_list[-1]
             if reasonet_training:
                 memory=ret_list[3]
+                # tiled_memory_mask=ret_list[4]
         else:
             ret_list= match_utils.trilateral_match(
                 in_question_repres, in_passage_repres, in_choice_repres,
@@ -294,17 +298,6 @@ class TriMatchModelGraph(object):
             match_representation, match_dim=ret_list[0:2]
             if verbose:
                 self.matching_vectors=ret_list[-1]
-        reasonet=ReasoNetModule(all_match_templates,memory)
-        with tf.variable_scope('rl_decision_gate'):
-            if use_options and (not efficient):
-                gate_input = gate_input[::num_options, :]
-            w_gate = tf.get_variable('w_gate', [2 * context_lstm_dim, len(rl_matches)], dtype=tf.float32)
-            b_gate = tf.get_variable('b_gate', [len(rl_matches)], dtype=tf.float32)
-            gate_logits = tf.matmul(gate_input, w_gate) + b_gate
-
-            gate_prob = tf.nn.softmax(gate_logits)
-
-            gate_log_prob = tf.nn.log_softmax(gate_logits)
 
         print('check: match_dim=', match_dim)
         # ========Prediction Layer=========
@@ -319,34 +312,72 @@ class TriMatchModelGraph(object):
             b_1 = tf.get_variable("b_1", [num_classes], dtype=tf.float32)
 
         if matching_option == 7:
-            sliced_gate_probs = tf.split(gate_prob, len(rl_matches), axis=1)
-            sliced_gate_log_probs = tf.split(gate_log_prob, len(rl_matches), axis=1)
-            # if use_options:
-            #     tile_times=tf.constant([1,num_options])
-            # else:
-            #     tile_times=tf.constant([1,num_classes])
-            self.gate_prob = gate_prob
-            self.gate_log_prob = gate_log_prob
-            weighted_probs = []
-            weighted_log_probs = []
-            all_probs = []
-            layout = 'question_first' if efficient else 'choice_first'
-            for mid, matcher in enumerate(all_match_templates):
-                matcher.add_softmax_pred(w_0, b_0, w_1, b_1, self.is_training, dropout_rate, use_options, num_options,
-                                         layout=layout)
-                all_probs.append(matcher.prob)
-                weighted_probs.append(tf.multiply(matcher.prob, sliced_gate_probs[mid]))
-                weighted_log_probs.append(tf.add(matcher.log_prob, sliced_gate_log_probs[mid]))
 
-            if verbose:
-                self.all_probs = tf.stack(all_probs, axis=0)
+            with tf.variable_scope('rl_decision_gate'):
+                if use_options and (not efficient):
+                    gate_input = gate_input[::num_options, :]
+                w_gate = tf.get_variable('w_gate', [2 * context_lstm_dim, len(rl_matches)], dtype=tf.float32)
+                b_gate = tf.get_variable('b_gate', [len(rl_matches)], dtype=tf.float32)
+                gate_logits = tf.matmul(gate_input, w_gate) + b_gate
 
-            self.prob = tf.add_n(weighted_probs)
+                gate_prob = tf.nn.softmax(gate_logits)
+
+                gate_log_prob = tf.nn.log_softmax(gate_logits)
+
+            if not reasonet_training:
+                sliced_gate_probs = tf.split(gate_prob, len(rl_matches), axis=1)
+                sliced_gate_log_probs = tf.split(gate_log_prob, len(rl_matches), axis=1)
+                # if use_options:
+                #     tile_times=tf.constant([1,num_options])
+                # else:
+                #     tile_times=tf.constant([1,num_classes])
+                self.gate_prob = gate_prob
+                self.gate_log_prob = gate_log_prob
+                weighted_probs = []
+                weighted_log_probs = []
+                all_probs = []
+                layout = 'question_first' if efficient else 'choice_first'
+                for mid, matcher in enumerate(all_match_templates):
+                    matcher.add_softmax_pred(w_0, b_0, w_1, b_1, self.is_training, dropout_rate, use_options, num_options,
+                                             layout=layout)
+                    all_probs.append(matcher.prob)
+                    weighted_probs.append(tf.multiply(matcher.prob, sliced_gate_probs[mid]))
+                    weighted_log_probs.append(tf.add(matcher.log_prob, sliced_gate_log_probs[mid]))
+
+                if verbose:
+                    self.all_probs = tf.stack(all_probs, axis=0)
+                weighted_log_probs = tf.stack(weighted_log_probs, axis=0)
+                self.weighted_log_probs = weighted_log_probs
+                weighted_probs = tf.stack(weighted_probs, axis=0)
+                self.prob = tf.add_n(weighted_probs)
+            else:
+                # assert efficient
+                reasonet_module=ReasoNetModule(reasonet_steps,num_options,match_dim, memory.aggregation_dim,
+                                               reasonet_hidden_dim, reasonet_lambda, terminate_mode=reasonet_terminate_mode,
+                                               keep_first=reasonet_keep_first)
+                all_log_probs, all_states=reasonet_module.multiread_matching(all_match_templates,memory)
+                # [num_steps * num_matchers, batch_size], [num_steps * num_matchers * batch_size, state_dim]
+                num_matcher=len(rl_matches)
+                total_num_gates=num_matcher*reasonet_calculated_steps
+                all_log_probs=tf.reshape(all_log_probs,[reasonet_calculated_steps, num_matcher,-1]) # [num_steps, num_matcher, batch_size]
+                final_log_probs=tf.reshape(tf.transpose(gate_log_prob)+all_log_probs, [total_num_gates,-1]) #[num_gates, batch_size]
+                layout = 'question_first' if efficient else 'choice_first'
+                gate_log_predictions=match_utils.softmax_pred(all_states,w_0,b_0,w_1,b_1,self.is_training,dropout_rate,
+                                                            use_options,num_options,cond_training, layout=layout) # [num_gates * batch_size, num_options]
+                gate_log_predictions=tf.reshape(gate_log_predictions, [total_num_gates, -1, num_options]) # [num_gates, batch_size, num_options]
+                weighted_log_probs=tf.expand_dims(final_log_probs,axis=2) + gate_log_predictions# [num_gates, batch_size, num_options]
+                self.weighted_log_probs = weighted_log_probs
+                weighted_probs=tf.exp(weighted_log_probs)# [num_gates, batch_size, num_options]
+                self.prob=tf.reduce_sum(weighted_probs, axis=0)# [batch_size, num_options]
+
+
+
+
             if use_options:
                 if efficient:
-                    gold_matrix = tf.transpose(tf.reshape(self.truth, [num_options, -1]))
+                    gold_matrix = tf.transpose(tf.reshape(self.truth, [num_options, -1]))# [batch_size, num_options]
                 else:
-                    gold_matrix = tf.reshape(self.truth, [-1, num_options])
+                    gold_matrix = tf.reshape(self.truth, [-1, num_options])# [batch_size, num_options]
                 gold_matrix = tf.cast(gold_matrix, tf.float32)
                 correct = tf.equal(tf.argmax(self.prob, 1), tf.argmax(gold_matrix, 1))
             else:
@@ -359,19 +390,16 @@ class TriMatchModelGraph(object):
             self.predictions = tf.arg_max(self.prob, 1)
 
             if rl_training_method == 'soft_voting':
-                weighted_log_probs = tf.stack(weighted_log_probs, axis=2)
-                self.weighted_log_probs = weighted_log_probs
-                self.log_prob = tf.reduce_logsumexp(weighted_log_probs, axis=2)
+                self.log_prob = tf.reduce_logsumexp(weighted_log_probs, axis=0)# [batch_size, num_options]
                 self.loss = tf.negative(tf.reduce_mean(tf.reduce_sum(tf.multiply(gold_matrix, self.log_prob), axis=1)))
             elif rl_training_method == 'contrastive' or rl_training_method == 'contrastive_imp':
-                weighted_log_probs = tf.stack(weighted_log_probs, axis=0)
-                weighted_probs = tf.stack(weighted_probs, axis=0)
-                reward_matrix = gold_matrix
-                baseline = tf.reduce_sum(tf.multiply(weighted_probs, reward_matrix), axis=[0, 2], keep_dims=True)
+
+                reward_matrix = gold_matrix# [batch_size, num_options]
+                baseline = tf.reduce_sum(tf.multiply(weighted_probs, reward_matrix), axis=[0, 2], keep_dims=True)# [batch_size]
                 if rl_training_method == 'contrastive':
-                    normalized_reward = reward_matrix - baseline
+                    normalized_reward = reward_matrix - baseline# [batch_size, num_options]
                 else:
-                    normalized_reward = tf.divide(reward_matrix, baseline) - 1
+                    normalized_reward = tf.divide(reward_matrix, baseline) - 1# [batch_size, num_options]
                 log_coeffs = tf.multiply(weighted_probs, normalized_reward)
                 log_coeffs = tf.stop_gradient(log_coeffs)
                 self.log_coeffs = log_coeffs

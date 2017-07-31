@@ -7,8 +7,9 @@ import match_utils
 from matcher import Matcher
 
 class Memory(Matcher):
-    def __init__(self,memory_lengths,cond_training=True):
+    def __init__(self,memory_lengths, tiled_memory_mask, cond_training=True):
         super().__init__(-1,memory_lengths,None,cond_training=cond_training)
+        self.tiled_memory_mask=tiled_memory_mask
     def add_memory_repre(self, memory_repre, memory_dim, extend=False):
         super().add_question_repre(memory_repre,memory_dim,extend)
     def get_memory_repre(self):
@@ -57,7 +58,8 @@ class Memory(Matcher):
                         cur_aggregation_representation, _ = my_rnn.bidirectional_dynamic_rnn(
                             aggregation_lstm_cell_fw, aggregation_lstm_cell_bw, aggregation_inputs[rep_id],
                             dtype=tf.float32, sequence_length=aggregation_lengths[rep_id])
-
+                        self.aggregation_dim += 2 * aggregation_lstm_dim
                         aggregation_inputs[rep_id] = tf.concat(cur_aggregation_representation, 2)
         #
-        self.aggregation_representation = aggregation_inputs[0]  # [batch_size, self.aggregation_dim]
+        self.aggregation_representation = aggregation_inputs[0]  # [batch_size, memory_length, self.aggregation_dim]
+        return self.aggregation_dim

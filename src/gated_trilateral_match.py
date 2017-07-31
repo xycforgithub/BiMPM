@@ -44,6 +44,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
 
     tiled_in_passage_repres=maybe_tile(in_passage_repres,efficient)
+    tiled_in_question_repres = maybe_tile(in_question_repres, efficient)
     tiled_mask=maybe_tile(mask,efficient)
     tiled_question_mask=maybe_tile(question_mask,efficient)
     tiled_question_lengths=maybe_tile(question_lengths,efficient)
@@ -63,12 +64,13 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
     word_level_max_pooling_pq = tf.reduce_max(qp_cosine_matrix_transpose, axis=2,keep_dims=True)
     word_level_avg_pooling_pq = tf.reduce_mean(qp_cosine_matrix_transpose, axis=2,keep_dims=True)
+    word_level_max_pooling_pq = maybe_tile(word_level_max_pooling_pq, efficient)
+    word_level_avg_pooling_pq = maybe_tile(word_level_avg_pooling_pq, efficient)
     untiled_word_level_max_pooling_qp=tf.reduce_max(qp_cosine_matrix, axis=2,keep_dims=True)
     untiled_word_level_avg_pooling_qp=tf.reduce_mean(qp_cosine_matrix, axis=2,keep_dims=True)
 
 
-    word_level_max_pooling_pq = maybe_tile(word_level_max_pooling_pq,efficient)
-    word_level_avg_pooling_pq = maybe_tile(word_level_avg_pooling_pq,efficient)
+
     word_level_max_pooling_pc = tf.reduce_max(cp_cosine_matrix_transpose, axis=2,keep_dims=True)
     word_level_avg_pooling_pc = tf.reduce_mean(cp_cosine_matrix_transpose, axis=2,keep_dims=True)
 
@@ -93,12 +95,12 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
         else:
             question_concat_basic_embedding=tf.concat([word_level_max_pooling_pq,word_level_avg_pooling_pq],2)
             choice_concat_basic_embedding=tf.concat([word_level_max_pooling_pc,word_level_avg_pooling_pc],2)
-            qc_basic_dim=4
-        qc_basic_embedding=my_rnn.concatenate_sents(question_concat_basic_embedding,choice_concat_basic_embedding, concat_idx_mat)
+            qc_basic_dim=2
+        qc_basic_embedding=my_rnn.concatenate_sents(question_concat_basic_embedding,choice_concat_basic_embedding, concat_idx_mat)# [batch_size, qc_len, qc_basic_dim]
 
 
     if construct_memory:
-        memory=Memory(passage_lengths,cond_training=cond_training)
+        memory=Memory(passage_lengths, tiled_memory_mask=tiled_mask, cond_training=cond_training)
         memory.add_memory_repre(untiled_word_level_max_pooling_qp,1)
         memory.add_memory_repre(untiled_word_level_avg_pooling_qp,1)
         memory.add_memory_repre(untiled_word_level_max_attentive_qp,MP_dim)
@@ -119,11 +121,11 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
             all_match_templates.append(matcher)
         elif matchid==0:
-            matcher=Matcher(matchid, tiled_question_lengths, choice_lengths, cond_training=cond_training, qc_lengths=qc_lengths)
+            matcher=Matcher(matchid, tiled_question_lengths, None, cond_training=cond_training, qc_lengths=qc_lengths)
             matcher.add_question_repre(qc_basic_embedding,qc_basic_dim)
             all_match_templates.append(matcher)
 
-    tiled_in_question_repres = maybe_tile(in_question_repres,efficient)
+
 
     # print('here')
     with tf.variable_scope('context_MP_matching'):
@@ -319,7 +321,6 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                                 MP_dim, context_lstm_dim, scope=None,
                                 with_full_match=with_full_match, with_maxpool_match=with_maxpool_match,
                                 with_attentive_match=with_attentive_match, with_max_attentive_match=with_max_attentive_match)
-                if construct_memory:
                     memory.add_memory_repre(q_p_matching_vectors,q_p_matching_dim,extend=True)
                 for (mat_id,rl_match_opt) in enumerate(rl_matches):
                     current_matcher=all_match_templates[mat_id]
@@ -339,7 +340,6 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         current_matcher.add_choice_repre(q_c_postmatching_vectors,q_c_postmatching_dim, extend=True)
     
     added_agg_highway=False
-
     for mid,matcher in enumerate(all_match_templates):
         # matching_tensors.extend(matcher.question_repre)
         # matching_tensors.extend(matcher.choice_repre)
@@ -373,6 +373,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     ret_list=[all_match_templates, agg_dim, gate_input]
     if construct_memory:
         ret_list.append(memory)
+        # ret_list.append(tiled_mask)
     if debug:
         ret_list.append(matching_tensors)
     return ret_list

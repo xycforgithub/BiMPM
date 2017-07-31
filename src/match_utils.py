@@ -7,6 +7,36 @@ import my_rnn
 
 eps = 1e-6
 
+
+def softmax_pred(all_states, w_0, b_0, w_1, b_1, is_training, dropout_rate, use_options=True, num_options=4,
+                     cond_training=True, layout='choice_first'):
+    # Layout = choice_first or question_first
+    logits = tf.matmul(all_states, w_0) + b_0
+    logits = tf.tanh(logits)
+    if cond_training:
+        logits = apply_dropout(logits, is_training, dropout_rate)
+    elif is_training:
+        logits = tf.nn.dropout(logits, (1 - dropout_rate))
+    else:
+        logits = tf.multiply(logits, (1 - dropout_rate))
+    logits = tf.matmul(logits, w_1) + b_1
+
+    if use_options:
+        if layout == 'choice_first':
+            logits = tf.reshape(logits, [-1, num_options])
+        else:
+            logits = tf.transpose(tf.reshape(logits, [num_options, -1]))
+
+        # prob = tf.nn.softmax(logits)
+        log_prob = tf.nn.log_softmax(logits)
+
+
+    else:
+        # prob = tf.nn.softmax(logits)
+        log_prob = tf.nn.log_softmax(logits)
+    return log_prob
+
+
 def apply_dropout(repre, is_training, dropout_rate):
     return tf.cond(is_training,lambda: tf.nn.dropout(repre, 1 - dropout_rate), lambda:repre)
 

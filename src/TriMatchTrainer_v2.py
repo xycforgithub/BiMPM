@@ -323,7 +323,9 @@ def main(_):
                  use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
                  matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
                  tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
-                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
+                 cond_training=FLAGS.cond_training,reasonet_training=FLAGS.reasonet_training, reasonet_steps=FLAGS.reasonet_steps, 
+                 reasonet_hidden_dim=FLAGS.reasonet_hidden_dim, reasonet_lambda=FLAGS.reasonet_lambda, 
+                 reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first, efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
 
 
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
@@ -339,7 +341,7 @@ def main(_):
         #         with tf.name_scope("Valid"):
                 with tf.variable_scope("Model", reuse=True, initializer=initializer):
                     valid_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                         dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
+                         dropout_rate=0.0, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
                          lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
                          aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
                          context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
@@ -352,7 +354,10 @@ def main(_):
                          with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
                          use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match,
                          matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
-                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, efficient=FLAGS.efficient, 
+                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches,
+                         reasonet_training=FLAGS.reasonet_training, reasonet_steps=FLAGS.reasonet_steps,
+                         reasonet_hidden_dim=FLAGS.reasonet_hidden_dim, reasonet_lambda=FLAGS.reasonet_lambda,
+                         reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first, efficient=FLAGS.efficient,
                          tied_match=FLAGS.tied_match)
 
                 
@@ -525,21 +530,25 @@ def main(_):
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
         with tf.variable_scope("Model", reuse=False, initializer=initializer):
             valid_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                 dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
-                 lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
-                 aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
-                 context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
-                 fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
-                 word_level_MP_dim=FLAGS.word_level_MP_dim,
-                 with_match_highway=FLAGS.with_match_highway, with_aggregation_highway=FLAGS.with_aggregation_highway,
-                 highway_layer_num=FLAGS.highway_layer_num,
-                 match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
-                 with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose, 
-                 matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context, 
-                 tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
-                 cond_training=FLAGS.cond_training, efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
+                         dropout_rate=0.0, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
+                         lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim,
+                         aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim,
+                         context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num,
+                         fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
+                         word_level_MP_dim=FLAGS.word_level_MP_dim,
+                         with_match_highway=FLAGS.with_match_highway, with_aggregation_highway=FLAGS.with_aggregation_highway,
+                         highway_layer_num=FLAGS.highway_layer_num,
+                         match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
+                         with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match),
+                         with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match),
+                         use_options=FLAGS.use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, verbose=FLAGS.verbose,
+                         matching_option=FLAGS.matching_option, concat_context=FLAGS.concat_context,
+                         tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches,
+                         cond_training=FLAGS.cond_training,reasonet_training=FLAGS.reasonet_training, reasonet_steps=FLAGS.reasonet_steps,
+                         reasonet_hidden_dim=FLAGS.reasonet_hidden_dim, reasonet_lambda=FLAGS.reasonet_lambda,
+                         reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first,
+                         efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
+
         vars_ = {}
         for var in tf.all_variables():
             if "word_embedding" in var.name: continue
@@ -616,6 +625,12 @@ if __name__ == '__main__':
     parser.add_argument('--rl_matches', default='[0,1,2]', help='list of RL matcher templates.')
     parser.add_argument('--cond_training', default=False, help='Construct a graph conditional on is_training sign.', action='store_true')
     parser.add_argument('--efficient',default=False, help='Improve efficiency by processing passage only once.', action='store_true')
+    parser.add_argument('--reasonet_training',default=False, help='Apply reasonet module', action='store_true')
+    parser.add_argument('--reasonet_steps',type=int, default=5, help='Reasonet reading steps')
+    parser.add_argument('--reasonet_hidden_dim',type=int,default=128, help='Reasonet hidden dimension (map both state and memory to this dimension).')
+    parser.add_argument('--reasonet_lambda',type=int,default=10, help='multiplier in reasonet to enlarge differences')
+    parser.add_argument('--reasonet_terminate_mode',default='original', help='reasonet terminate mode: original to use terminate probs, softmax to use terminate logits')
+    parser.add_argument('--reasonet_keep_first', default=False, help='Also use step 0 as a gate in reasonet', action='store_true')
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()
