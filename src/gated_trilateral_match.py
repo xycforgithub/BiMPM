@@ -40,7 +40,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
     qp_cosine_matrix = cal_relevancy_matrix(in_question_repres, in_passage_repres) # [batch_size, passage_len, question_len]
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)
     qp_cosine_matrix_transpose = tf.transpose(qp_cosine_matrix, perm=[0,2,1])# [batch_size, question_len, passage_len]
-
+    in_question_shape=tf.shape(in_question_repres)
+    question_len=in_question_shape[1]
 
 
     tiled_in_passage_repres=maybe_tile(in_passage_repres,efficient)
@@ -340,10 +341,17 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                         current_matcher.add_choice_repre(q_c_postmatching_vectors,q_c_postmatching_dim, extend=True)
     
     added_agg_highway=False
+    matching_dim=all_match_templates[0].question_repre_dim
+    reuse_choice_highway=None
     for mid,matcher in enumerate(all_match_templates):
         # matching_tensors.extend(matcher.question_repre)
         # matching_tensors.extend(matcher.choice_repre)
         matcher.concat(is_training,dropout_rate)
+        if rl_matches[mid]==1:
+            target_shape=[-1,question_len, matching_dim]
+            transform_W=tf.get_variable('tied_aggre_fitting_lntransform',[matcher.question_repre_dim, matching_dim],tf.float32)
+            matcher.transform_question_repre(transform_W,target_shape, matching_dim)
+
         if matcher.question_repre_dim>0:
             matching_tensors.append(matcher.question_repre)
         if matcher.choice_repre_dim>0:
@@ -351,9 +359,11 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
         reuse = True if mid>0 and tied_aggre else None
 
-
         if with_match_highway:
-            matcher.add_highway_layer(highway_layer_num, tied_aggre=tied_aggre, reuse=reuse)
+            print('adding matcher ',mid, 'matching highway: dim=', matcher.question_repre_dim, matcher.choice_repre_dim)
+            matcher.add_highway_layer(highway_layer_num, tied_aggre=tied_aggre, reuse_question=reuse, reuse_choice=reuse_choice_highway)
+            if rl_matches[mid]!=0 and tied_aggre:
+                reuse_choice_highway=True
         agg_dim=matcher.aggregate(aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=tied_aggre, reuse=reuse)
         print('aggregation dim=',agg_dim)
         if with_aggregation_highway:
@@ -367,7 +377,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
         matching_tensors.append(memory.question_repre)
         reuse=True if tied_aggre else None
         if with_match_highway:
-            memory.add_highway_layer(highway_layer_num, tied_aggre=tied_aggre, reuse=reuse)
+            memory.add_highway_layer(highway_layer_num, tied_aggre=tied_aggre, reuse_question=reuse)
         memory.aggregate(aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=tied_aggre, reuse=reuse)
 
     ret_list=[all_match_templates, agg_dim, gate_input]

@@ -17,7 +17,13 @@ class Matcher:
         self.choice_lengths=choice_lengths
         self.qc_lengths=qc_lengths
         self.cond_training=cond_training
+        self.concated=False
+    def transform_question_repre(self, weight, target_shape,target_dim):
+        assert self.concated
+        self.question_repre=match_utils.map_tensor(weight, self.question_repre, self.question_repre_dim, target_shape)
+        self.question_repre_dim=target_dim
     def concat(self,is_training,dropout_rate):
+        self.concated=True
         if self.question_repre_dim>0:
             self.question_repre=tf.concat(self.question_repre, 2, name='conat_question_{}'.format(self.matching_id))
             if self.cond_training:
@@ -48,16 +54,16 @@ class Matcher:
         else:
             self.choice_repre.append(choice_repre)
         self.choice_repre_dim+=choice_dim
-    def add_highway_layer(self,highway_layer_num,tied_aggre=False, reuse=None):
+    def add_highway_layer(self,highway_layer_num,tied_aggre=False, reuse_question=None, reuse_choice=None):
         if tied_aggre:
             name='matching_highway'
         else:
             name='matching_highway_{}'.format(self.matching_id)
         if self.question_repre_dim>0:
-            with tf.variable_scope("{}_ques".format(name),reuse=reuse):
+            with tf.variable_scope("{}_ques".format(name),reuse=reuse_question):
                 self.question_repre = multi_highway_layer(self.question_repre, self.question_repre_dim, highway_layer_num)
         if self.choice_repre_dim>0:
-            with tf.variable_scope("{}_choice".format(name),reuse=reuse):
+            with tf.variable_scope("{}_choice".format(name),reuse=reuse_choice):
                 self.choice_repre = multi_highway_layer(self.choice_repre, self.choice_repre_dim, highway_layer_num)
     def aggregate(self,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False, reuse=None):
         self.aggregation_representation = []

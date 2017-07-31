@@ -454,12 +454,12 @@ def main(_):
                     # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
                 return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     train_graph.all_probs, train_graph.correct, train_graph.gate_prob, train_graph.gate_log_prob,
-                    train_graph.weighted_log_probs, train_graph.log_coeffs]+train_graph.matching_vectors, feed_dict=feed_dict)
+                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+train_graph.matching_vectors, feed_dict=feed_dict)
 
                 print(len(return_list))
                 with open('../model_data/res.pkg','wb') as fout:
                     pickle.dump(return_list, fout)
-
+                input('written')
                 _, loss_value, pred, prob, all_probs, correct, gate_prob, gate_log_prob, weighted_log_probs,\
                     log_coeffs=return_list[0:10]
                 print('loss=',loss_value) 
@@ -511,11 +511,11 @@ def main(_):
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
                 print("Current accuracy on dev set is %.2f" % accuracy)
-                saver.save(sess, best_path+'_iter{}'.format(step))
+                # saver.save(sess, best_path+'_iter{}'.format(step))
                 print('saving the current model.')
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
-                    saver.save(sess, best_path)
+                    # saver.save(sess, best_path)
                     print('saving the current model as best model.')
                 accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)

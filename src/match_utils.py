@@ -7,7 +7,10 @@ import my_rnn
 
 eps = 1e-6
 
-
+def map_tensor(weight, tensor, vector_dim, target_shape):
+    reshaped_tensor=tf.reshape(tensor, [-1,vector_dim])
+    mapped_reshaped=tf.matmul(reshaped_tensor,weight)
+    return tf.reshape(mapped_reshaped, target_shape)
 def softmax_pred(all_states, w_0, b_0, w_1, b_1, is_training, dropout_rate, use_options=True, num_options=4,
                      cond_training=True, layout='choice_first'):
     # Layout = choice_first or question_first

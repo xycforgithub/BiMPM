@@ -13,9 +13,11 @@ class Memory(Matcher):
     def add_memory_repre(self, memory_repre, memory_dim, extend=False):
         super().add_question_repre(memory_repre,memory_dim,extend)
     def get_memory_repre(self):
-        return self.question_repre
+        return self.aggregation_representation
     def get_memory_length(self):
         return self.question_lengths
+    def get_memory_dim(self):
+        return self.aggregation_dim
     def aggregate(self, aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False,
                   reuse=None):
         self.aggregation_representation = []
@@ -62,4 +64,5 @@ class Memory(Matcher):
                         aggregation_inputs[rep_id] = tf.concat(cur_aggregation_representation, 2)
         #
         self.aggregation_representation = aggregation_inputs[0]  # [batch_size, memory_length, self.aggregation_dim]
+        # self.
         return self.aggregation_dim
