@@ -386,6 +386,14 @@ def main(_):
         total_loss = 0.0
         start_time = time.time()
         sub_loss_counter=0.0
+        tensor_list=tf.get_default_graph().as_graph_def().node
+        thenode=None
+        attention_node_list=[]
+        for node in tensor_list:
+            if ('reasonet_attention_softmax' in node.name) or ('test_argmax' in node.name):
+                print(node.name)
+                attention_node_list.append(tf.get_default_graph().get_tensor_by_name(node.name+':0'))
+
         for step in range(max_steps):
             # read data
             cur_batch = trainDataStream.nextBatch()
@@ -454,7 +462,7 @@ def main(_):
                     # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
                 return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     train_graph.all_probs, train_graph.correct, train_graph.gate_prob, train_graph.gate_log_prob,
-                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+train_graph.matching_vectors, feed_dict=feed_dict)
+                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+attention_node_list+train_graph.matching_vectors, feed_dict=feed_dict)
 
                 print(len(return_list))
                 with open('../model_data/res.pkg','wb') as fout:

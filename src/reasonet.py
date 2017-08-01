@@ -42,6 +42,7 @@ class ReasoNetModule:
         self.keep_first=keep_first
 
         self.total_calculated_steps=self.num_steps+1 if keep_first else self.num_steps
+        self.test_vectors=[]
 
     def multiread_matching(self, matchers, memory):
         tiled_memory_mask=memory.tiled_memory_mask # [batch_size, memory_length]
@@ -87,8 +88,11 @@ class ReasoNetModule:
                 for mid in range(num_matcher):
                     stop_prob, go_prob = tf.unstack(all_terminate_log_probs[step * num_matcher + mid], axis=1) # [batch_size/4, 1]
                     if len(cur_remaining_log_prob)<num_matcher:
-                        all_log_probs.append(stop_prob)
-                        cur_remaining_log_prob.append(go_prob)
+                        if self.total_calculated_steps==1:
+                            all_log_probs.append(tf.ones_like(stop_prob))
+                        else:
+                            all_log_probs.append(stop_prob)
+                            cur_remaining_log_prob.append(go_prob)
                     else:
                         if step==self.total_calculated_steps-1:
                             all_log_probs.append(cur_remaining_log_prob[mid])
@@ -138,9 +142,11 @@ class ReasoNetModule:
         relevancy_mat=tf.squeeze(match_utils.cal_relevancy_matrix(expanded_state,mapped_memory), axis=2)*self.lambda_multiplier # [batch_size, memory_length]
         # print('relevancy_mat',relevancy_mat.get_shape())
         relevancy_mat=exp_mask(relevancy_mat,memory_mask) # [batch_size, memory_length]
-        softmax_sim=tf.nn.softmax(relevancy_mat)# [batch_size, memory_length]
+        softmax_sim=tf.nn.softmax(relevancy_mat, name='reasonet_attention_softmax')# [batch_size, memory_length]
+        self.test_vectors.extend([mapped_memory,mapped_state,relevancy_mat,softmax_sim])
+        # print(softmax_sim.name)
         # print('softmax_sim',softmax_sim.get_shape())
-        res = tf.multiply(memory_repre,tf.expand_dims(relevancy_mat,axis=2))# [batch_size, memory_length, memory_dim]
+        res = tf.multiply(memory_repre,tf.expand_dims(softmax_sim,axis=2))# [batch_size, memory_length, memory_dim]
         return tf.reduce_sum(res,axis=1) # [batch_size, memory_dim]
 
 

@@ -12,9 +12,9 @@ verbose=False
 true_repeat=1
 middle_only=False
 high_only=False
-sort=True
+sort=False
 triMatch=True # set concat_mode=concat to use triMatch
-partData=False
+partData=True
 largePartData=False
 if triMatch:
 	assert concat_mode=='concat'

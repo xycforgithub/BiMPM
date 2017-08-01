@@ -98,7 +98,9 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
             choice_concat_basic_embedding=tf.concat([word_level_max_pooling_pc,word_level_avg_pooling_pc],2)
             qc_basic_dim=2
         qc_basic_embedding=my_rnn.concatenate_sents(question_concat_basic_embedding,choice_concat_basic_embedding, concat_idx_mat)# [batch_size, qc_len, qc_basic_dim]
-
+        matching_tensors.append(question_concat_basic_embedding)
+        matching_tensors.append(choice_concat_basic_embedding)
+        matching_tensors.append(qc_basic_embedding)
 
     if construct_memory:
         memory=Memory(passage_lengths, tiled_memory_mask=tiled_mask, cond_training=cond_training)
@@ -347,7 +349,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
         # matching_tensors.extend(matcher.question_repre)
         # matching_tensors.extend(matcher.choice_repre)
         matcher.concat(is_training,dropout_rate)
-        if rl_matches[mid]==1:
+        if rl_matches[mid]==1 and tied_aggre:
             target_shape=[-1,question_len, matching_dim]
             transform_W=tf.get_variable('tied_aggre_fitting_lntransform',[matcher.question_repre_dim, matching_dim],tf.float32)
             matcher.transform_question_repre(transform_W,target_shape, matching_dim)
