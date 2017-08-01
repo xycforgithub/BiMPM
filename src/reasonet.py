@@ -43,6 +43,8 @@ class ReasoNetModule:
 
         self.total_calculated_steps=self.num_steps+1 if keep_first else self.num_steps
         self.test_vectors=[]
+        self.added_1=False
+        self.added_2=False
 
     def multiread_matching(self, matchers, memory):
         tiled_memory_mask=memory.tiled_memory_mask # [batch_size, memory_length]
@@ -76,9 +78,14 @@ class ReasoNetModule:
             for state in all_states:
                 if self.logit_combine=='sum':
                     this_logit=tf.matmul(state, self.W_gate) # [batch_size, 2]
+                    if not self.added_2:
+                        self.test_vectors.append(this_logit)
                     this_logit=tf.reduce_sum(tf.reshape(this_logit,[self.num_options,-1,2]),axis=0)+self.b_gate # [batch_size/4, 2]
+                    if not self.added_2:
+                        self.test_vectors.append(this_logit)
+                        self.added_2=True
                 else:
-                    reshaped_state=tf.reshape(state,[self.num_options,-1,self.state_dim]) # [batch_size/4, state_dim]
+                    reshaped_state=tf.reshape(state,[self.num_options,-1,self.state_dim]) # [4, batch_size/4, state_dim]
                     max_state=tf.reduce_max(reshaped_state,axis=0)
                     this_logit=tf.matmul(max_state,self.W_gate)+self.b_gate # [batch_size/4, 2]
 
@@ -87,9 +94,11 @@ class ReasoNetModule:
             for step in range(self.total_calculated_steps):
                 for mid in range(num_matcher):
                     stop_prob, go_prob = tf.unstack(all_terminate_log_probs[step * num_matcher + mid], axis=1) # [batch_size/4, 1]
+                    self.test_vectors.append(stop_prob)
+                    self.test_vectors.append(go_prob)
                     if len(cur_remaining_log_prob)<num_matcher:
                         if self.total_calculated_steps==1:
-                            all_log_probs.append(tf.ones_like(stop_prob))
+                            all_log_probs.append(tf.zeros_like(stop_prob))
                         else:
                             all_log_probs.append(stop_prob)
                             cur_remaining_log_prob.append(go_prob)
@@ -143,11 +152,15 @@ class ReasoNetModule:
         # print('relevancy_mat',relevancy_mat.get_shape())
         relevancy_mat=exp_mask(relevancy_mat,memory_mask) # [batch_size, memory_length]
         softmax_sim=tf.nn.softmax(relevancy_mat, name='reasonet_attention_softmax')# [batch_size, memory_length]
-        self.test_vectors.extend([mapped_memory,mapped_state,relevancy_mat,softmax_sim])
         # print(softmax_sim.name)
         # print('softmax_sim',softmax_sim.get_shape())
         res = tf.multiply(memory_repre,tf.expand_dims(softmax_sim,axis=2))# [batch_size, memory_length, memory_dim]
-        return tf.reduce_sum(res,axis=1) # [batch_size, memory_dim]
+        res=tf.reduce_sum(res,axis=1)
+        if not self.added_1:
+            self.test_vectors.extend([mapped_memory,mapped_state,relevancy_mat,softmax_sim,res])
+            self.added_1=True
+        
+        return res # [batch_size, memory_dim]
 
 
 

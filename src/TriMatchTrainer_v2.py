@@ -462,7 +462,7 @@ def main(_):
                     # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
                 return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     train_graph.all_probs, train_graph.correct, train_graph.gate_prob, train_graph.gate_log_prob,
-                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+attention_node_list+train_graph.matching_vectors, feed_dict=feed_dict)
+                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+train_graph.matching_vectors, feed_dict=feed_dict)
 
                 print(len(return_list))
                 with open('../model_data/res.pkg','wb') as fout:
