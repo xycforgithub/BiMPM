@@ -13,12 +13,14 @@ def exp_mask(val,mask, name=None):
     return tf.add(val, (1 - mask) * VERY_NEGATIVE_NUMBER, name=name or 'mask')
 class ReasoNetModule:
     def __init__(self, num_steps,num_options, state_dim, memory_dim, hidden_dim, lambda_multiplier, memory_max_len, scope=None,
-                 terminate_mode='original', keep_first=False):
+                 terminate_mode='original', logit_combine='sum', keep_first=False):
         # terminate_mode: original or softmax
+        # Logit combine: sum or max_pooling
         self.num_steps=num_steps
         self.num_options=num_options
         self.hidden_dim=hidden_dim
         self.state_dim=state_dim
+        self.logit_combine=logit_combine
         print('state dim=', state_dim, 'memory dim=',memory_dim)
         self.memory_dim=memory_dim
         self.terminate_mode=terminate_mode
@@ -71,12 +73,19 @@ class ReasoNetModule:
         if self.terminate_mode=='original':
             all_terminate_log_probs=[]
             for state in all_states:
-                this_logit=tf.matmul(state, self.W_gate)+self.b_gate # [batch_size, 2]
+                if self.logit_combine=='sum':
+                    this_logit=tf.matmul(state, self.W_gate) # [batch_size, 2]
+                    this_logit=tf.reduce_sum(tf.reshape(this_logit,[self.num_options,-1,2]),axis=0)+self.b_gate # [batch_size/4, 2]
+                else:
+                    reshaped_state=tf.reshape(state,[self.num_options,-1,self.state_dim]) # [batch_size/4, state_dim]
+                    max_state=tf.reduce_max(reshaped_state,axis=0)
+                    this_logit=tf.matmul(max_state,self.W_gate)+self.b_gate # [batch_size/4, 2]
+
                 all_terminate_log_probs.append(tf.nn.log_softmax(this_logit))
             cur_remaining_log_prob=[]
             for step in range(self.total_calculated_steps):
                 for mid in range(num_matcher):
-                    stop_prob, go_prob = tf.unstack(all_terminate_log_probs[step * num_matcher + mid], axis=1)
+                    stop_prob, go_prob = tf.unstack(all_terminate_log_probs[step * num_matcher + mid], axis=1) # [batch_size/4, 1]
                     if len(cur_remaining_log_prob)<num_matcher:
                         all_log_probs.append(stop_prob)
                         cur_remaining_log_prob.append(go_prob)
@@ -86,19 +95,31 @@ class ReasoNetModule:
                         else:
                             all_log_probs.append(cur_remaining_log_prob[mid] + stop_prob)
                             cur_remaining_log_prob[mid]=cur_remaining_log_prob[mid] + go_prob
-            all_log_probs=tf.stack(all_log_probs,axis=0) # [num_steps * num_matchers, batch_size]
+            all_log_probs=tf.stack(all_log_probs,axis=0) # [num_steps * num_matchers, batch_size/4]
+            all_states = tf.concat(all_states, axis=0)  # [num_steps * num_matchers * batch_size, state_dim]
         else:
-            all_logits=[]
-            for state in all_states:
-                all_logits.append(tf.matmul(state,self.W_state)+self.b_gate) # each: [batch_size,1]
-            all_logits=tf.concat(all_logits,axis=1)# [batch_size, num_steps * num_matchers]
-            all_logits=tf.reshape(all_logits,[-1,self.total_calculated_steps,num_matcher])# [batch_size, num_steps, num_matchers]
-            all_log_probs=tf.reshape(tf.nn.log_softmax(all_logits,dim=1),[-1,num_matcher*self.total_calculated_steps])# [batch_size, num_steps * num_matchers]
-            all_log_probs=tf.transpose(all_log_probs)# [num_steps * num_matchers, batch_size]
+            all_states=tf.concat(all_states,axis=0) # [num_steps * num_matchers * batch_size, state_dim]
+            if self.logit_combine=='sum':
+                all_logits = tf.matmul(all_states,self.W_gate)
+                all_logits = tf.reduce_sum(tf.reshape(all_logits, [self.total_calculated_steps , num_matcher, self.num_options, -1]), axis=2) + self.b_gate  # [num_steps , num_matcher,  batch_size/4]
+            else:
+                reshaped_state = tf.reshape(all_states, [self.total_calculated_steps , num_matcher, self.num_options, -1, self.state_dim])  # [num_steps , num_matcher, 4, batch_size/4, state_dim]
+                max_state = tf.reduce_max(reshaped_state, axis=2) # [num_steps , num_matcher, batch_size/4, state_dim]
+                all_logits =tf.matmul(tf.reshape(max_state,[-1,self.state_dim]), self.W_gate)+self.b_gate
+                all_logits = tf.reshape(all_logits, [self.total_calculated_steps, num_matcher, self.num_options, -1])
+            all_log_probs = tf.reshape(tf.nn.log_softmax(all_logits, dim=0),[self.total_calculated_steps * num_matcher,-1])  # [num_steps * num_matchers, batch_size/4]
+
+
+                # all_logits=[]
+            # for state in all_states:
+            #     all_logits.append(tf.matmul(state,self.W_state)+self.b_gate) # each: [batch_size,1]
+            # all_logits=tf.concat(all_logits,axis=1)# [batch_size, num_steps * num_matchers]
+            # all_logits=tf.reshape(all_logits,[-1,self.total_calculated_steps,num_matcher])# [batch_size, num_steps, num_matchers]
+            # all_log_probs=tf.transpose(all_log_probs)# [num_steps * num_matchers, batch_size]
         # all_states=tf.stack(all_states,axis=0)
-        all_states=tf.concat(all_states, axis=0)# [num_steps * num_matchers * batch_size, state_dim]
-        all_log_probs=tf.reshape(all_log_probs,[num_matcher*self.total_calculated_steps, -1, self.num_options])
-        all_log_probs=tf.reduce_logsumexp(all_log_probs, axis=2)-log(self.num_options)
+
+        # all_log_probs=tf.reshape(all_log_probs,[num_matcher*self.total_calculated_steps, -1, self.num_options])
+        # all_log_probs=tf.reduce_logsumexp(all_log_probs, axis=2)-log(self.num_options)
         print('finished reasonet')
         return all_log_probs,all_states
     # def cal_multiread_result(self, all_states,w_0,b_0,w_1,b_1,is_training,use_options=True, num_options=4, layout='choice_first')):
