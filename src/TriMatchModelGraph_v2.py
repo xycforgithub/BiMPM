@@ -22,7 +22,8 @@ class TriMatchModelGraph(object):
                  num_options=-1, verbose=False, matching_option=0,
                  concat_context=False, tied_aggre=False, rl_training_method='contrastive', rl_matches=None,
                  cond_training=False, reasonet_training=False, reasonet_steps=5, reasonet_hidden_dim=128,
-                 reasonet_lambda=10, reasonet_terminate_mode='original', reasonet_keep_first=False, efficient=False, tied_match=False):
+                 reasonet_lambda=10, reasonet_terminate_mode='original', reasonet_keep_first=False, efficient=False, 
+                 reasonet_logit_combine='sum', tied_match=False):
         ''' Matching Options:
         0:a1=q->p, a2=c->p, [concat(a1->a2,a2->a1)]
         1:a1=q->p, a2=c->p, [a1->a2,a2->a1]
@@ -357,10 +358,16 @@ class TriMatchModelGraph(object):
                 with tf.variable_scope('reasonet'):
                     reasonet_module=ReasoNetModule(reasonet_steps,num_options,match_dim, memory.aggregation_dim,
                                                    reasonet_hidden_dim, reasonet_lambda, memory_max_len=passage_len, 
-                                                   terminate_mode=reasonet_terminate_mode, keep_first=reasonet_keep_first)
+                                                   terminate_mode=reasonet_terminate_mode, keep_first=reasonet_keep_first,
+                                                   logit_combine=reasonet_logit_combine)
                     all_log_probs, all_states=reasonet_module.multiread_matching(all_match_templates,memory)
                     if verbose:
-                        self.matching_vectors+=reasonet_module.test_vectors
+                        self.matching_vectors.append(all_states)
+                        for matcher in all_match_templates:
+                            self.matching_vectors.append(matcher.aggregation_representation)
+
+                    # if verbose:
+                    #     self.matching_vectors+=reasonet_module.test_vectors
                 # [num_steps * num_matchers, batch_size/4], [num_steps * num_matchers * batch_size, state_dim]
                     self.rn_log_probs=all_log_probs
                     num_matcher=len(rl_matches)
@@ -369,10 +376,15 @@ class TriMatchModelGraph(object):
                     final_log_probs=tf.reshape(tf.transpose(gate_log_prob)+all_log_probs, [total_num_gates,-1]) #[num_gates, batch_size/4]
                     self.final_log_probs=final_log_probs
                     layout = 'question_first' if efficient else 'choice_first'
-                    print('log_probs')
                     gate_log_predictions=match_utils.softmax_pred(all_states,w_0,b_0,w_1,b_1,self.is_training,dropout_rate,
-                                                                use_options,num_options,cond_training, layout=layout) # [num_gates * batch_size/4, num_options]
-                    gate_log_predictions=tf.reshape(gate_log_predictions, [total_num_gates, -1, num_options]) # [num_gates, batch_size/4, num_options]
+                                                                use_options,num_options,cond_training, layout=layout, num_gates=total_num_gates) # [num_gates * batch_size/4, num_options]
+                    # gate_log_predictions=tf.reshape(gate_log_predictions, [total_num_gates, -1, num_options]) # [num_gates, batch_size/4, num_options]
+                    if verbose:
+                        for matcher in all_match_templates:
+                            matcher.add_softmax_pred(w_0, b_0, w_1, b_1, self.is_training, dropout_rate, use_options, num_options, layout=layout)    
+                            self.matching_vectors.append(matcher.log_prob)
+
+                                                                    
                     if verbose:
                         self.all_probs=gate_log_predictions
 
@@ -508,6 +520,10 @@ class TriMatchModelGraph(object):
         extra_train_ops = []
         train_ops = [self.train_op] + extra_train_ops
         self.train_op = tf.group(*train_ops)
+
+        with tf.name_scope('summary'):
+            self.loss_summary=tf.summary.scalar('loss',self.loss)
+            self.acc_summary = tf.summary.scalar('accuracy',self.eval_correct)
 
     def get_predictions(self):
         return self.__predictions

@@ -12,7 +12,7 @@ def map_tensor(weight, tensor, vector_dim, target_shape):
     mapped_reshaped=tf.matmul(reshaped_tensor,weight)
     return tf.reshape(mapped_reshaped, target_shape)
 def softmax_pred(all_states, w_0, b_0, w_1, b_1, is_training, dropout_rate, use_options=True, num_options=4,
-                     cond_training=True, layout='choice_first'):
+                     cond_training=True, layout='choice_first', num_gates=1):
     # Layout = choice_first or question_first
     logits = tf.matmul(all_states, w_0) + b_0
     logits = tf.tanh(logits)
@@ -24,14 +24,18 @@ def softmax_pred(all_states, w_0, b_0, w_1, b_1, is_training, dropout_rate, use_
         logits = tf.multiply(logits, (1 - dropout_rate))
     logits = tf.matmul(logits, w_1) + b_1
 
+    # logits=logits*100
+
     if use_options:
         if layout == 'choice_first':
             logits = tf.reshape(logits, [-1, num_options])
+            log_prob = tf.nn.log_softmax(logits)
         else:
-            logits = tf.transpose(tf.reshape(logits, [num_options, -1]))
+            logits = tf.reshape(logits, [num_gates, num_options, -1]) # [num_gates, 4, batch_size/4]
+            logits = tf.transpose(logits, perm=[0,2,1]) # [num_gates, batch_size/4, 4]
+            log_prob = tf.nn.log_softmax(logits) # [num_gates, batch_size/4, 4]
 
         # prob = tf.nn.softmax(logits)
-        log_prob = tf.nn.log_softmax(logits)
 
 
     else:

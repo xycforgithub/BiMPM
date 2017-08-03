@@ -118,8 +118,8 @@ class ReasoNetModule:
             else:
                 reshaped_state = tf.reshape(all_states, [self.total_calculated_steps , num_matcher, self.num_options, -1, self.state_dim])  # [num_steps , num_matcher, 4, batch_size/4, state_dim]
                 max_state = tf.reduce_max(reshaped_state, axis=2) # [num_steps , num_matcher, batch_size/4, state_dim]
-                all_logits =tf.matmul(tf.reshape(max_state,[-1,self.state_dim]), self.W_gate)+self.b_gate
-                all_logits = tf.reshape(all_logits, [self.total_calculated_steps, num_matcher, self.num_options, -1])
+                all_logits =tf.matmul(tf.reshape(max_state,[-1,self.state_dim]), self.W_gate)+self.b_gate# [num_steps , num_matcher, batch_size/4]
+                all_logits = tf.reshape(all_logits, [self.total_calculated_steps, num_matcher, -1])
             all_log_probs = tf.reshape(tf.nn.log_softmax(all_logits, dim=0),[self.total_calculated_steps * num_matcher,-1])  # [num_steps * num_matchers, batch_size/4]
 
 
@@ -152,7 +152,7 @@ class ReasoNetModule:
         # print('relevancy_mat',relevancy_mat.get_shape())
         relevancy_mat=exp_mask(relevancy_mat,memory_mask) # [batch_size, memory_length]
         softmax_sim=tf.nn.softmax(relevancy_mat, name='reasonet_attention_softmax')# [batch_size, memory_length]
-        # print(softmax_sim.name)
+        print(softmax_sim.name)
         # print('softmax_sim',softmax_sim.get_shape())
         res = tf.multiply(memory_repre,tf.expand_dims(softmax_sim,axis=2))# [batch_size, memory_length, memory_dim]
         res=tf.reduce_sum(res,axis=1)

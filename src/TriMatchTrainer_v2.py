@@ -211,6 +211,7 @@ def main(_):
     label_path = path_prefix + ".label_vocab"
     POS_path = path_prefix + ".POS_vocab"
     NER_path = path_prefix + ".NER_vocab"
+    summary_path = path_prefix +'.summary_train'
     has_pre_trained_model = False
     POS_vocab = None
     NER_vocab = None
@@ -325,7 +326,8 @@ def main(_):
                  tied_aggre=FLAGS.tied_aggre, rl_training_method=FLAGS.rl_training_method, rl_matches=FLAGS.rl_matches, 
                  cond_training=FLAGS.cond_training,reasonet_training=FLAGS.reasonet_training, reasonet_steps=FLAGS.reasonet_steps, 
                  reasonet_hidden_dim=FLAGS.reasonet_hidden_dim, reasonet_lambda=FLAGS.reasonet_lambda, 
-                 reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first, efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
+                 reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first, 
+                 efficient=FLAGS.efficient, tied_match=FLAGS.tied_match, reasonet_logit_combine=FLAGS.reasonet_logit_combine)
 
 
             tf.summary.scalar("Training Loss", train_graph.get_loss()) # Add a scalar summary for the snapshot loss.
@@ -358,7 +360,7 @@ def main(_):
                          reasonet_training=FLAGS.reasonet_training, reasonet_steps=FLAGS.reasonet_steps,
                          reasonet_hidden_dim=FLAGS.reasonet_hidden_dim, reasonet_lambda=FLAGS.reasonet_lambda,
                          reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first, efficient=FLAGS.efficient,
-                         tied_match=FLAGS.tied_match)
+                         tied_match=FLAGS.tied_match, reasonet_logit_combine=FLAGS.reasonet_logit_combine)
 
                 
         initializer = tf.global_variables_initializer()
@@ -366,6 +368,7 @@ def main(_):
         for var in tf.global_variables():
             # print(var.name,var.get_shape().as_list())
             if "word_embedding" in var.name: continue
+            # print(var.name)
 #             if not var.name.startswith("Model"): continue
             vars_[var.name.split(":")[0]] = var
         saver = tf.train.Saver(vars_)
@@ -374,6 +377,8 @@ def main(_):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True 
         sess = tf.Session(config=config)
+        summary_writer= tf.summary.FileWriter(summary_path,sess.graph)
+        print('log_directory:',summary_path)
         sess.run(initializer)
         if has_pre_trained_model:
             print("Restoring model from " + best_path)
@@ -386,13 +391,15 @@ def main(_):
         total_loss = 0.0
         start_time = time.time()
         sub_loss_counter=0.0
-        tensor_list=tf.get_default_graph().as_graph_def().node
+        graph_def=tf.get_default_graph().as_graph_def()
+        # f.write()
+        tensor_list=graph_def.node
         thenode=None
         attention_node_list=[]
-        for node in tensor_list:
-            if ('reasonet_attention_softmax' in node.name) or ('test_argmax' in node.name):
-                print(node.name)
-                attention_node_list.append(tf.get_default_graph().get_tensor_by_name(node.name+':0'))
+        # for node in tensor_list:
+        #     if ('reasonet_attention_softmax' in node.name) or ('test_argmax' in node.name):
+        #         print(node.name)
+        #         attention_node_list.append(tf.get_default_graph().get_tensor_by_name(node.name+':0'))
 
         for step in range(max_steps):
             # read data
@@ -460,7 +467,7 @@ def main(_):
             if FLAGS.verbose:
                 # return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
-                return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
+                return_list = sess.run([train_graph.get_train_op(), train_graph.loss_summary, train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     train_graph.all_probs, train_graph.correct, train_graph.gate_prob, train_graph.gate_log_prob,
                     train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+train_graph.matching_vectors, feed_dict=feed_dict)
 
@@ -468,8 +475,8 @@ def main(_):
                 with open('../model_data/res.pkg','wb') as fout:
                     pickle.dump(return_list, fout)
                 input('written')
-                _, loss_value, pred, prob, all_probs, correct, gate_prob, gate_log_prob, weighted_log_probs,\
-                    log_coeffs=return_list[0:10]
+                _, loss_summary,loss_value, pred, prob, all_probs, correct, gate_prob, gate_log_prob, weighted_log_probs,\
+                    log_coeffs=return_list[0:11]
                 print('loss=',loss_value) 
                 print('pred=',pred)
                 print('prob=',prob)
@@ -492,8 +499,9 @@ def main(_):
 
                 input('check')
             else:
-                _, loss_value = sess.run([train_graph.get_train_op(), train_graph.get_loss()], feed_dict=feed_dict)
+                _, loss_summary, loss_value = sess.run([train_graph.get_train_op(), train_graph.loss_summary, train_graph.get_loss()], feed_dict=feed_dict)
             total_loss += loss_value
+            summary_writer.add_summary(loss_summary, step)
             sub_loss_counter+=loss_value
             
             if step % int(FLAGS.display_every)==0: 
@@ -519,11 +527,11 @@ def main(_):
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
                 print("Current accuracy on dev set is %.2f" % accuracy)
-                # saver.save(sess, best_path+'_iter{}'.format(step))
+                saver.save(sess, best_path+'_iter{}'.format(step))
                 print('saving the current model.')
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
-                    # saver.save(sess, best_path)
+                    saver.save(sess, best_path)
                     print('saving the current model as best model.')
                 accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
@@ -534,9 +542,13 @@ def main(_):
     print('Decoding on the test set:')
     sess.close()
     init_scale = 0.01
+
     with tf.Graph().as_default():
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
+        print('current scope:',tf.get_variable_scope().name)
         with tf.variable_scope("Model", reuse=False, initializer=initializer):
+            print('current scope:',tf.get_variable_scope().name)
+
             valid_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                          dropout_rate=0.0, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
                          lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim,
@@ -555,7 +567,7 @@ def main(_):
                          cond_training=FLAGS.cond_training,reasonet_training=FLAGS.reasonet_training, reasonet_steps=FLAGS.reasonet_steps,
                          reasonet_hidden_dim=FLAGS.reasonet_hidden_dim, reasonet_lambda=FLAGS.reasonet_lambda,
                          reasonet_terminate_mode=FLAGS.reasonet_terminate_mode, reasonet_keep_first=FLAGS.reasonet_keep_first,
-                         efficient=FLAGS.efficient, tied_match=FLAGS.tied_match)
+                         efficient=FLAGS.efficient, tied_match=FLAGS.tied_match, reasonet_logit_combine=FLAGS.reasonet_logit_combine)
 
         vars_ = {}
         for var in tf.all_variables():
@@ -639,6 +651,7 @@ if __name__ == '__main__':
     parser.add_argument('--reasonet_lambda',type=int,default=10, help='multiplier in reasonet to enlarge differences')
     parser.add_argument('--reasonet_terminate_mode',default='original', help='reasonet terminate mode: original to use terminate probs, softmax to use terminate logits')
     parser.add_argument('--reasonet_keep_first', default=False, help='Also use step 0 as a gate in reasonet', action='store_true')
+    parser.add_argument('--reasonet_logit_combine',default='sum', help='Use sum/max pooling to combine terminate logit of different answers.')
 
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()

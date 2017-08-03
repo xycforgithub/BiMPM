@@ -162,7 +162,7 @@ class Matcher:
         else:
             logits = tf.multiply(logits, (1 - dropout_rate))
         logits = tf.matmul(logits, w_1) + b_1
-
+        # logits=logits*100
         self.logits=logits
         if use_options:
             if layout=='choice_first':
