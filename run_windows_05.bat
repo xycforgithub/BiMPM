@@ -1,0 +1,2 @@
+start run_race_tri_rl_rn_all_sumlogit.bat
+start run_race_tri_rl_rn_all_drop0.5_lr0.005_sumlogit.bat
