@@ -322,9 +322,9 @@ class TriMatchModelGraph(object):
                 b_gate = tf.get_variable('b_gate', [len(rl_matches)], dtype=tf.float32)
                 gate_logits = tf.matmul(gate_input, w_gate) + b_gate
 
-                gate_prob = tf.nn.softmax(gate_logits)
+                gate_prob = tf.nn.softmax(gate_logits) # [batch_size/4, num_match]
 
-                gate_log_prob = tf.nn.log_softmax(gate_logits)
+                gate_log_prob = tf.nn.log_softmax(gate_logits) # [batch_size/4, num_match]
 
             if not reasonet_training:
                 sliced_gate_probs = tf.split(gate_prob, len(rl_matches), axis=1)
@@ -368,11 +368,11 @@ class TriMatchModelGraph(object):
 
                     # if verbose:
                     #     self.matching_vectors+=reasonet_module.test_vectors
-                # [num_steps * num_matchers, batch_size/4], [num_steps * num_matchers * batch_size, state_dim]
+                # [num_steps , num_matchers, batch_size/4], [num_steps * num_matchers * batch_size, state_dim]
                     self.rn_log_probs=all_log_probs
                     num_matcher=len(rl_matches)
                     total_num_gates=num_matcher*reasonet_calculated_steps
-                    all_log_probs=tf.reshape(all_log_probs,[reasonet_calculated_steps, num_matcher,-1]) # [num_steps, num_matcher, batch_size/4]
+                    # all_log_probs=tf.reshape(all_log_probs,[reasonet_calculated_steps, num_matcher,-1]) # [num_steps, num_matcher, batch_size/4]
                     final_log_probs=tf.reshape(tf.transpose(gate_log_prob)+all_log_probs, [total_num_gates,-1]) #[num_gates, batch_size/4]
                     self.final_log_probs=final_log_probs
                     layout = 'question_first' if efficient else 'choice_first'

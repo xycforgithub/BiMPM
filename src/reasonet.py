@@ -31,9 +31,9 @@ class ReasoNetModule:
             self.W_gate=tf.get_variable('gate_weight',[state_dim,logit_dim], tf.float32)
             self.b_gate=tf.get_variable('gate_bias',[logit_dim], tf.float32)
         self.cell=tf.contrib.rnn.GRUCell(self.state_dim, reuse=tf.get_variable_scope().reuse)
-        print(self.cell.state_size)
+        # print(self.cell.state_size)
         init_state=self.cell.zero_state(50,tf.float32)
-        print(init_state.get_shape())
+        # print(init_state.get_shape())
         # input('check?')
         # self.state_shape=None
         # self.memory_shape=None
@@ -48,12 +48,15 @@ class ReasoNetModule:
 
     def multiread_matching(self, matchers, memory):
         tiled_memory_mask=memory.tiled_memory_mask # [batch_size, memory_length]
-        tiled_memory_repre=tf.tile(memory.get_memory_repre(),[self.num_options,1,1]) # [batch_size, memory_length, memory_dim]
-        self.memory_shape=tf.shape(tiled_memory_repre)
-        self.state_shape=tf.shape(matchers[0].aggregation_representation)
         all_log_probs=[]
         all_states=[]
-
+        tiled_memory_repre=tf.tile(memory.get_memory_repre(),[self.num_options,1,1]) # [batch_size, memory_length, memory_dim]
+        # self.memory_shape=tf.shape(tiled_memory_repre)
+        # self.state_shape=tf.shape(matchers[0].aggregation_representation)
+        tiled_mapped_memory=match_utils.map_tensor(self.W_mem, tiled_memory_repre, self.memory_dim, [-1, self.memory_max_len, 
+                        self.hidden_dim]) # [batch_size, memory_length, hidden_dim]
+        # tiled_mapped_memory=tf.tile(mapped_memory,[self.num_options,1,1]) #[batch_size, memory_length, hidden_dim]
+        
         cur_states=[]
         num_matcher=len(matchers)
         for matcher in matchers:
@@ -64,7 +67,7 @@ class ReasoNetModule:
         for step in range(self.num_steps):
             for mid,state in enumerate(cur_states):
                 print('step',step,'matcher',mid)
-                input_vector=self.cal_attention_vector(state,tiled_memory_repre,tiled_memory_mask) # [batch_size, memory_dim]
+                input_vector=self.cal_attention_vector(state,tiled_memory_repre, tiled_mapped_memory,tiled_memory_mask) # [batch_size, memory_dim]
                 if step>0 or mid>0: 
                     tf.get_variable_scope().reuse_variables()
                 # print(input_vector.get_shape())
@@ -73,6 +76,7 @@ class ReasoNetModule:
                 # print(new_state.get_shape())
                 cur_states[mid]=new_state
                 all_states.append(new_state)
+        print('number of total states:',len(all_states))
         if self.terminate_mode=='original':
             all_terminate_log_probs=[]
             for state in all_states:
@@ -109,6 +113,7 @@ class ReasoNetModule:
                             all_log_probs.append(cur_remaining_log_prob[mid] + stop_prob)
                             cur_remaining_log_prob[mid]=cur_remaining_log_prob[mid] + go_prob
             all_log_probs=tf.stack(all_log_probs,axis=0) # [num_steps * num_matchers, batch_size/4]
+            all_log_probs=tf.reshape(all_log_probs,[self.total_calculated_steps, num_matcher, -1])
             all_states = tf.concat(all_states, axis=0)  # [num_steps * num_matchers * batch_size, state_dim]
         else:
             all_states=tf.concat(all_states,axis=0) # [num_steps * num_matchers * batch_size, state_dim]
@@ -120,7 +125,7 @@ class ReasoNetModule:
                 max_state = tf.reduce_max(reshaped_state, axis=2) # [num_steps , num_matcher, batch_size/4, state_dim]
                 all_logits =tf.matmul(tf.reshape(max_state,[-1,self.state_dim]), self.W_gate)+self.b_gate# [num_steps , num_matcher, batch_size/4]
                 all_logits = tf.reshape(all_logits, [self.total_calculated_steps, num_matcher, -1])
-            all_log_probs = tf.reshape(tf.nn.log_softmax(all_logits, dim=0),[self.total_calculated_steps * num_matcher,-1])  # [num_steps * num_matchers, batch_size/4]
+            all_log_probs = tf.nn.log_softmax(all_logits, dim=0),[self.total_calculated_steps * num_matcher,-1]  # [num_steps * num_matchers, batch_size/4]
 
 
                 # all_logits=[]
@@ -143,8 +148,8 @@ class ReasoNetModule:
 
 
 
-    def cal_attention_vector(self,cur_state, memory_repre, memory_mask):
-        mapped_memory=match_utils.map_tensor(self.W_mem, memory_repre, self.memory_dim, [-1, self.memory_max_len, self.hidden_dim]) # [batch_size, memory_length, hidden_dim]
+    def cal_attention_vector(self,cur_state, memory_repre, mapped_memory, memory_mask):
+        # mapped_memory=match_utils.map_tensor(self.W_mem, memory_repre, self.memory_dim, [-1, self.memory_max_len, self.hidden_dim]) # [batch_size, memory_length, hidden_dim]
         # mapped_state=self.map_tensor(self.W_state, cur_state, self.state_dim, self.state_shape)
         mapped_state=tf.matmul(cur_state,self.W_state) # [batch_size, hidden_dim]
         expanded_state=tf.expand_dims(mapped_state,axis=1) # [batch_size, 1, hidden_dim]
@@ -152,7 +157,7 @@ class ReasoNetModule:
         # print('relevancy_mat',relevancy_mat.get_shape())
         relevancy_mat=exp_mask(relevancy_mat,memory_mask) # [batch_size, memory_length]
         softmax_sim=tf.nn.softmax(relevancy_mat, name='reasonet_attention_softmax')# [batch_size, memory_length]
-        print(softmax_sim.name)
+        # print(softmax_sim.name)
         # print('softmax_sim',softmax_sim.get_shape())
         res = tf.multiply(memory_repre,tf.expand_dims(softmax_sim,axis=2))# [batch_size, memory_length, memory_dim]
         res=tf.reduce_sum(res,axis=1)

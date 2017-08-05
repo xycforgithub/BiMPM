@@ -48,6 +48,8 @@ class Memory(Matcher):
                         if self.cond_training:
                             aggregation_lstm_cell_fw = SwitchableDropoutWrapper(aggregation_lstm_cell_fw, is_training,
                                                                                 output_keep_prob=(1 - dropout_rate))
+                            aggregation_lstm_cell_bw = SwitchableDropoutWrapper(aggregation_lstm_cell_bw, is_training,
+                                                                                output_keep_prob=(1 - dropout_rate))
                         elif is_training:
                             aggregation_lstm_cell_fw = tf.contrib.rnn.DropoutWrapper(aggregation_lstm_cell_fw,
                                                                                      output_keep_prob=(

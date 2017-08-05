@@ -164,7 +164,7 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
     if outpath is not None: outfile.close()
     print('')
     # print(correct_tag_list,total_count_list)
-    json.dump({'correct':correct_tag_list,'total':total_count_list},open('res.txt','w'))
+    # json.dump({'correct':correct_tag_list,'total':total_count_list},open('res.txt','w'))
     accuracy = correct_tags / total_tags * 100
     return accuracy
 
@@ -527,15 +527,15 @@ def main(_):
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
                 print("Current accuracy on dev set is %.2f" % accuracy)
-                saver.save(sess, best_path+'_iter{}'.format(step))
+                # saver.save(sess, best_path+'_iter{}'.format(step))
                 print('saving the current model.')
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
-                    saver.save(sess, best_path)
+                    # saver.save(sess, best_path)
                     print('saving the current model as best model.')
-                accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                    use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
-                print("Current accuracy on test set is %.2f" % accuracy)
+                # accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
+                #     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
+                # print("Current accuracy on test set is %.2f" % accuracy)
                 
     print("Best accuracy on dev set is %.2f" % best_accuracy)
     # decoding
