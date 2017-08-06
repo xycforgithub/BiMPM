@@ -1,4 +1,15 @@
-def generate_script(mode,logit_combine, dataset='middle', increase_layers=False, dropout_rate=0.1, learning_rate=0.001,no_gated_rl=False,tied_aggre=False, tied_match=False, reasonet_train='original', keep_first=False, prefix='' ):
+def generate_script(mode,logit_combine='sum', dataset='middle', increase_layers=False, dropout_rate=0.1, learning_rate=0.001,no_gated_rl=False,tied_aggre=False, tied_match=False, reasonet_train='original', keep_first=False, prefix='',reasonet_config=None ):
+	if reasonet_config is not None:
+		if reasonet_config in [0,1]:
+			tied_aggre=False
+			tied_match=False
+			reasonet_train='original'
+			logit_combine = 'sum' if reasonet_config==0 else 'max_pooling'
+		elif reasonet_config==2:
+			tied_match=True
+			tied_aggre=True
+			reasonet_train='softmax'
+			logit_combine='sum'
 	filename=prefix+'run_race_tri_rl_rn_'+dataset
 	model_name='race_tri_rl_rn_'+dataset
 	if no_gated_rl:
@@ -85,8 +96,8 @@ def generate_script(mode,logit_combine, dataset='middle', increase_layers=False,
 	print(base_string,file=out_file)
 	return filename
 # linux_file_list=[]
-windows_file_list1=[]
-windows_file_list2=[]
+windows_file_list1=[]# for 05
+windows_file_list2=[]# for 09
 # linux_file_list.append(generate_script(mode='linux',tied_aggre=False, tied_match=False, reasonet_train='original', keep_first=False, logit_combine='sum'))
 # linux_file_list.append(generate_script(mode='linux',tied_aggre=False, tied_match=True, reasonet_train='original', keep_first=False, logit_combine='sum'))
 # linux_file_list.append(generate_script(mode='linux',tied_aggre=True, tied_match=True, reasonet_train='original', keep_first=False, logit_combine='sum'))
@@ -100,18 +111,36 @@ windows_file_list2=[]
 # linux_file_list.append(generate_script(mode='linux',tied_aggre=True, tied_match=True, reasonet_train='original', keep_first=True, logit_combine='max_pooling'))
 # linux_file_list.append(generate_script(mode='linux',tied_aggre=False, tied_match=False, reasonet_train='softmax', keep_first=True, logit_combine='max_pooling'))
 # linux_file_list.append(generate_script(mode='linux',tied_aggre=True, tied_match=True, reasonet_train='softmax', keep_first=True, logit_combine='max_pooling'))
-windows_file_list1.append(generate_script(mode='windows',logit_combine='sum',dataset='all',increase_layers=False,dropout_rate=0.1, learning_rate=0.001, no_gated_rl=False))
-windows_file_list1.append(generate_script(mode='windows',logit_combine='sum',dataset='all',increase_layers=False,dropout_rate=0.5, learning_rate=0.005, no_gated_rl=False))
+# windows_file_list1.append(generate_script(mode='windows',logit_combine='sum',dataset='all',increase_layers=False,dropout_rate=0.1, learning_rate=0.001, no_gated_rl=False))
+# windows_file_list1.append(generate_script(mode='windows',logit_combine='sum',dataset='all',increase_layers=False,dropout_rate=0.5, learning_rate=0.005, no_gated_rl=False))
+#
+# generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.1, learning_rate=0.001, no_gated_rl=True, prefix='azure5')
+# generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.5, learning_rate=0.001, no_gated_rl=False, prefix='azure6')
+# generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.5, learning_rate=0.005, no_gated_rl=False, prefix='lab6')
 
-generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.1, learning_rate=0.001, no_gated_rl=True, prefix='azure5')
-generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.5, learning_rate=0.001, no_gated_rl=False, prefix='azure6')
-generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.5, learning_rate=0.005, no_gated_rl=False, prefix='lab6')
+windows_file_list1.append(generate_script(mode='windows',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=0))
+windows_file_list1.append(generate_script(mode='windows',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=2))
+windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.1, reasonet_config=1))
+windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.1, reasonet_config=2))
+windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.5, reasonet_config=0))
+windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=True,dropout_rate=0.5, reasonet_config=0))
+generate_script(mode='linux',dataset='middle',increase_layers=True,dropout_rate=0.5, reasonet_config=0,prefix='azure7')
+generate_script(mode='linux',dataset='middle',increase_layers=True,dropout_rate=0.5, reasonet_config=2,prefix='azure8')
+generate_script(mode='linux',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=1,prefix='dev1')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=0,prefix='lab7')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=1,prefix='lab8')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=2,prefix='lab9')
+
 
 
 
 windows_file=open('run_windows_05.bat','w')
 for filename in windows_file_list1:
-	print(filename,file=windows_file)
+	print('start '+filename,file=windows_file)
+
+windows_file = open('run_windows_09.bat', 'w')
+for filename in windows_file_list2:
+	print('start '+filename, file=windows_file)
 # linux_file=open('run_linux.sh','w',newline='\n')
 # for filename in linux_file_list:
 # 	print(filename,file=linux_file)

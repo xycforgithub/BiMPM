@@ -1,2 +1,2 @@
-start run_race_tri_rl_rn_all_sumlogit.bat
-start run_race_tri_rl_rn_all_drop0.5_lr0.005_sumlogit.bat
+start run_race_tri_rl_rn_middle_morelayers_sumlogit.bat
+start run_race_tri_rl_rn_middle_morelayers_tied_aggre_tied_match_rn_soft_sumlogit.bat
