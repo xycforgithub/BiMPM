@@ -128,7 +128,8 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
             matcher.add_question_repre(qc_basic_embedding,qc_basic_dim)
             all_match_templates.append(matcher)
 
-
+    in_qc_repres = my_rnn.concatenate_sents(tiled_in_question_repres, in_choice_repres, concat_idx_mat)
+    gate_input = []
 
     # print('here')
     with tf.variable_scope('context_MP_matching'):
@@ -154,13 +155,13 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                     if concat_context:
 
                         print('concat context')
-                        in_qc_repres = my_rnn.concatenate_sents(tiled_in_question_repres, in_choice_repres, concat_idx_mat)
+
 
                         # question representation
                         (qc_context_representation_fw, qc_context_representation_bw), _ = my_rnn.bidirectional_dynamic_rnn(
                                             context_lstm_cell_fw, context_lstm_cell_bw, in_qc_repres, dtype=tf.float32, 
                                             sequence_length=qc_lengths) # [batch_size, question_len, context_lstm_dim]
-                        # in_qc_repres = tf.concat([qc_context_representation_fw, qc_context_representation_bw], 2)
+                        in_qc_repres = tf.concat([qc_context_representation_fw, qc_context_representation_bw], 2)
 
                         # gate_input=my_rnn.extract_question_repre(qc_context_representation_fw,qc_context_representation_bw,question_lengths)
                         tiled_question_context_representation_fw, choice_context_representation_fw = \
@@ -179,6 +180,9 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                                             context_lstm_cell_fw, context_lstm_cell_bw, in_question_repres, dtype=tf.float32,
                                             sequence_length=question_lengths) # [batch_size, question_len, context_lstm_dim]
                         in_question_repres = tf.concat([question_context_representation_fw, question_context_representation_bw], 2)
+                        gate_input.append(question_context_representation_fw[:,-1,:])
+                        gate_input.append(question_context_representation_bw[:,0,:])
+
 
                         # Passage representation
                         tf.get_variable_scope().reuse_variables()
@@ -235,7 +239,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
 
                 # gate_input=tf.concat([tiled_question_context_representation_fw[:,-1,:],tiled_question_context_representation_bw[:,0,:]],1, name='gate_input')
-                gate_input=tf.concat([question_context_representation_fw[:,-1,:],question_context_representation_bw[:,0,:]],1, name='gate_input')
+                gate_input=tf.concat(gate_input,1, name='gate_input')
 
 
                 matched=False

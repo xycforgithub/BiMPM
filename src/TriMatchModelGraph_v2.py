@@ -282,6 +282,7 @@ class TriMatchModelGraph(object):
             all_match_templates, match_dim, gate_input=ret_list[0:3]
             if verbose:
                 self.matching_vectors=ret_list[-1]
+                self.matching_vectors+=gate_input
             if reasonet_training:
                 memory=ret_list[3]
                 # tiled_memory_mask=ret_list[4]
