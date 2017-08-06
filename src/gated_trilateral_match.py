@@ -239,7 +239,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
 
 
                 # gate_input=tf.concat([tiled_question_context_representation_fw[:,-1,:],tiled_question_context_representation_bw[:,0,:]],1, name='gate_input')
-                gate_input=tf.concat(gate_input,1, name='gate_input')
+
 
 
                 matched=False
@@ -345,7 +345,7 @@ def gated_trilateral_match(in_question_repres, in_passage_repres, in_choice_repr
                     if rl_match_opt==2:
                         current_matcher.add_question_repre(c_q_postmatching_vectors,c_q_postmatching_dim, extend=True)
                         current_matcher.add_choice_repre(q_c_postmatching_vectors,q_c_postmatching_dim, extend=True)
-    
+    gate_input=tf.concat(gate_input,1, name='gate_input')
     added_agg_highway=False
     matching_dim=all_match_templates[0].question_repre_dim
     reuse_choice_highway=None

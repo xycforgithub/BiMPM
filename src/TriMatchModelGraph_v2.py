@@ -282,7 +282,7 @@ class TriMatchModelGraph(object):
             all_match_templates, match_dim, gate_input=ret_list[0:3]
             if verbose:
                 self.matching_vectors=ret_list[-1]
-                self.matching_vectors+=gate_input
+                self.matching_vectors.append(gate_input)
             if reasonet_training:
                 memory=ret_list[3]
                 # tiled_memory_mask=ret_list[4]
@@ -319,7 +319,7 @@ class TriMatchModelGraph(object):
             with tf.variable_scope('rl_decision_gate'):
                 if use_options and (not efficient):
                     gate_input = gate_input[::num_options, :]
-                w_gate = tf.get_variable('w_gate', [2 * context_lstm_dim, len(rl_matches)], dtype=tf.float32)
+                w_gate = tf.get_variable('w_gate', [2 * context_layer_num * context_lstm_dim, len(rl_matches)], dtype=tf.float32)
                 b_gate = tf.get_variable('b_gate', [len(rl_matches)], dtype=tf.float32)
                 gate_logits = tf.matmul(gate_input, w_gate) + b_gate
 
