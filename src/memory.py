@@ -64,7 +64,8 @@ class Memory(Matcher):
                             dtype=tf.float32, sequence_length=aggregation_lengths[rep_id])
                         self.aggregation_dim += 2 * aggregation_lstm_dim
                         aggregation_inputs[rep_id] = tf.concat(cur_aggregation_representation, 2)
+                        self.aggregation_representation.extend(cur_aggregation_representation)
         #
-        self.aggregation_representation = aggregation_inputs[0]  # [batch_size, memory_length, self.aggregation_dim]
+        self.aggregation_representation = tf.concat(self.aggregation_representation,2)  # [batch_size, memory_length, self.aggregation_dim]
         # self.
         return self.aggregation_dim
