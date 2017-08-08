@@ -1,4 +1,6 @@
-def generate_script(mode,logit_combine='sum', dataset='middle', increase_layers=False, dropout_rate=0.1, learning_rate=0.001,no_gated_rl=False,tied_aggre=False, tied_match=False, reasonet_train='original', keep_first=False, prefix='',reasonet_config=None ):
+def generate_script(mode,logit_combine='sum', dataset='middle', increase_layers=False, dropout_rate=0.1, 
+		learning_rate=0.001,no_gated_rl=False,tied_aggre=False, tied_match=False, reasonet_train='original', 
+		keep_first=False, prefix='',reasonet_config=None, batch_size=64):
 	if reasonet_config is not None:
 		if reasonet_config in [0,1]:
 			tied_aggre=False
@@ -17,7 +19,8 @@ def generate_script(mode,logit_combine='sum', dataset='middle', increase_layers=
 		model_name+='_nogates'
 	if increase_layers:
 		filename+='_morelayers'
-		model_name+='morelayers'
+		model_name+='_morelayers'
+		batch_size=32
 	if dropout_rate!=0.1:
 		filename+='_drop'+str(dropout_rate)
 		model_name+='_drop'+str(dropout_rate)
@@ -74,7 +77,7 @@ def generate_script(mode,logit_combine='sum', dataset='middle', increase_layers=
 
 		base_string+=r' --model_dir ../model_data/BiMPM/race'
 
-	base_string += r' --suffix %s --fix_word_vec --batch_size 64 --MP_dim 10 --max_sent_length 500 --learning_rate %.3f --max_epochs 20 --match_to_passage --display_every 50 --max_hyp_length 100 --use_options --wo_sort_instance_based_on_length --matching_option 7 --predict_val --rl_training_method contrastive_imp --with_highway --with_match_highway --with_aggregation_highway --concat_context --efficient --reasonet_training --reasonet_steps 5 --cond_training --dropout_rate %.1f' % (model_name, learning_rate, dropout_rate)
+	base_string += r' --suffix %s --fix_word_vec --batch_size %d --MP_dim 10 --max_sent_length 500 --learning_rate %.3f --max_epochs 20 --match_to_passage --display_every 50 --max_hyp_length 100 --use_options --wo_sort_instance_based_on_length --matching_option 7 --predict_val --rl_training_method contrastive_imp --with_highway --with_match_highway --with_aggregation_highway --concat_context --efficient --reasonet_training --reasonet_steps 5 --cond_training --dropout_rate %.1f' % (model_name, batch_size, learning_rate, dropout_rate)
 	if no_gated_rl:
 		base_string+=' --rl_matches [0]'
 	else:
@@ -119,17 +122,21 @@ windows_file_list2=[]# for 09
 # generate_script(mode='linux',logit_combine='sum',dataset='middle',increase_layers=False,dropout_rate=0.5, learning_rate=0.005, no_gated_rl=False, prefix='lab6')
 
 windows_file_list1.append(generate_script(mode='windows',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=0))
+windows_file_list1.append(generate_script(mode='windows',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=1))
 windows_file_list1.append(generate_script(mode='windows',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=2))
-windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.1, reasonet_config=1))
+windows_file_list2.append(generate_script(mode='windows',dataset='middle',increase_layers=True,dropout_rate=0.5, reasonet_config=0))
+windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.1, reasonet_config=0))
 windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.1, reasonet_config=2))
-windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=False,dropout_rate=0.5, reasonet_config=0))
-windows_file_list2.append(generate_script(mode='windows',dataset='all',increase_layers=True,dropout_rate=0.5, reasonet_config=0))
-generate_script(mode='linux',dataset='middle',increase_layers=True,dropout_rate=0.5, reasonet_config=0,prefix='azure7')
-generate_script(mode='linux',dataset='middle',increase_layers=True,dropout_rate=0.5, reasonet_config=2,prefix='azure8')
-generate_script(mode='linux',dataset='middle',increase_layers=True,dropout_rate=0.1, reasonet_config=1,prefix='dev1')
-generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=0,prefix='lab7')
-generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=1,prefix='lab8')
-generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=2,prefix='lab9')
+generate_script(mode='linux',dataset='middle',prefix='azure9')
+generate_script(mode='linux',dataset='middle',no_gated_rl=True, reasonet_config=0,prefix='azure10')
+generate_script(mode='linux',dataset='middle',no_gated_rl=True, reasonet_config=2,prefix='azure11')
+generate_script(mode='linux',dataset='middle',prefix='dev2')
+generate_script(mode='linux',dataset='all',increase_layers=False,dropout_rate=0.1, reasonet_config=1,prefix='lab10')
+generate_script(mode='linux',dataset='all',increase_layers=False,dropout_rate=0.5, reasonet_config=0,prefix='lab11')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=0,prefix='lab12')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=1,prefix='lab13')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.1, reasonet_config=2,prefix='lab14')
+generate_script(mode='linux',dataset='all',increase_layers=True,dropout_rate=0.5, reasonet_config=0,prefix='lab15')
 
 
 

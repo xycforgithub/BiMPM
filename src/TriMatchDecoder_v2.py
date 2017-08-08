@@ -88,6 +88,36 @@ if __name__ == '__main__':
         FLAGS.cond_training=True
         if FLAGS.concat_context:
             gen_split_mat=True
+        reasonet_training=False
+        if hasattr(FLAGS,'reasonet_training'):
+            reasonet_training=FLAGS.reasonet_training
+        rl_matches=FLAGS.rl_matches
+        concat_context=FLAGS.concat_context
+        tied_aggre=False
+        if hasattr(FLAGS,'tied_aggre'):
+            tied_aggre=FLAGS.tied_aggre
+        tied_match=False
+        if hasattr(FLAGS,'tied_match'):
+            tied_match=FLAGS.tied_match
+        rl_training_method=FLAGS.rl_training_method
+        efficient=FLAGS.efficient
+        reasonet_steps=5
+        reasonet_hiddne_dim=128
+        reasonet_lambda=10
+        reasonet_terminate_mode='original'
+        reasonet_keep_first=True
+        reasonet_logit_combine='sum'       
+        if reasonet_training:
+            reasonet_steps=FLAGS.reasonet_steps
+            reasonet_hiddne_dim=FLAGS.reasonet_hiddne_dim
+            reasonet_lambda=FLAGS.reasonet_lambda
+            reasonet_terminate_mode=FLAGS.reasonet_terminate_mode
+            reasonet_keep_first=FLAGS.reasonet_keep_first
+            reasonet_logit_combine=FLAGS.reasonet_logit_combine
+
+
+
+
 
     # load vocabs
     print('Loading vocabs.')
@@ -124,20 +154,41 @@ if __name__ == '__main__':
     with tf.Graph().as_default():
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
         with tf.variable_scope("Model", reuse=False, initializer=initializer):
-            valid_graph =  TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                 dropout_rate=0.0, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
-                 lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
-                 aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
-                 context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
-                 fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
-                 word_level_MP_dim=FLAGS.word_level_MP_dim,
-                 with_match_highway=FLAGS.with_match_highway, with_aggregation_highway=FLAGS.with_aggregation_highway,
-                 highway_layer_num=FLAGS.highway_layer_num,
-                 match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
-                 with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
-                 with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
-                 use_options=use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, matching_option=matching_option,
-                 cond_training=cond_training)
+            if matching_option!=7:
+                valid_graph =  TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
+                     dropout_rate=0.0, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
+                     lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
+                     aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
+                     context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
+                     fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
+                     word_level_MP_dim=FLAGS.word_level_MP_dim,
+                     with_match_highway=FLAGS.with_match_highway, with_aggregation_highway=FLAGS.with_aggregation_highway,
+                     highway_layer_num=FLAGS.highway_layer_num,
+                     match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
+                     with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
+                     with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
+                     use_options=use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, matching_option=matching_option,
+                     cond_training=cond_training)
+            else:
+                valid_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
+                     dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
+                     lambda_l2=FLAGS.lambda_l2, char_lstm_dim=FLAGS.char_lstm_dim, context_lstm_dim=FLAGS.context_lstm_dim, 
+                     aggregation_lstm_dim=FLAGS.aggregation_lstm_dim, is_training=False, MP_dim=FLAGS.MP_dim, 
+                     context_layer_num=FLAGS.context_layer_num, aggregation_layer_num=FLAGS.aggregation_layer_num, 
+                     fix_word_vec=FLAGS.fix_word_vec, with_highway=FLAGS.with_highway,
+                     word_level_MP_dim=FLAGS.word_level_MP_dim,
+                     with_match_highway=FLAGS.with_match_highway, with_aggregation_highway=FLAGS.with_aggregation_highway,
+                     highway_layer_num=FLAGS.highway_layer_num,
+                     match_to_question=FLAGS.match_to_question, match_to_passage=FLAGS.match_to_passage, match_to_choice=FLAGS.match_to_choice,
+                     with_full_match=(not FLAGS.wo_full_match), with_maxpool_match=(not FLAGS.wo_maxpool_match), 
+                     with_attentive_match=(not FLAGS.wo_attentive_match), with_max_attentive_match=(not FLAGS.wo_max_attentive_match), 
+                     use_options=use_options, num_options=num_options, with_no_match=FLAGS.with_no_match, 
+                     matching_option=matching_option, concat_context=concat_context, 
+                     tied_aggre=tied_aggre, rl_training_method=rl_training_method, rl_matches=rl_matches, 
+                     cond_training=cond_training,reasonet_training=reasonet_training, reasonet_steps=reasonet_steps, 
+                     reasonet_hidden_dim=reasonet_hidden_dim, reasonet_lambda=reasonet_lambda, 
+                     reasonet_terminate_mode=reasonet_terminate_mode, reasonet_keep_first=reasonet_keep_first, 
+                     efficient=efficient, tied_match=tied_match, reasonet_logit_combine=reasonet_logit_combine)
 
 #             saver = tf.train.Saver()
         # remove word _embedding

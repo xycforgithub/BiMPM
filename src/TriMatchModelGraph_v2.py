@@ -362,6 +362,7 @@ class TriMatchModelGraph(object):
                                                    terminate_mode=reasonet_terminate_mode, keep_first=reasonet_keep_first,
                                                    logit_combine=reasonet_logit_combine)
                     all_log_probs, all_states=reasonet_module.multiread_matching(all_match_templates,memory)
+                    # [num_steps , num_matchers, batch_size/4], [num_steps * num_matchers * batch_size, state_dim]
                     if verbose:
                         self.matching_vectors.append(all_states)
                         for matcher in all_match_templates:
@@ -369,11 +370,13 @@ class TriMatchModelGraph(object):
 
                     # if verbose:
                     #     self.matching_vectors+=reasonet_module.test_vectors
-                # [num_steps , num_matchers, batch_size/4], [num_steps * num_matchers * batch_size, state_dim]
+                
                     self.rn_log_probs=all_log_probs
                     num_matcher=len(rl_matches)
                     total_num_gates=num_matcher*reasonet_calculated_steps
                     # all_log_probs=tf.reshape(all_log_probs,[reasonet_calculated_steps, num_matcher,-1]) # [num_steps, num_matcher, batch_size/4]
+                    print('gate_log_prob:',gate_log_prob.get_shape())
+                    print('all_log_probs:',all_log_probs.get_shape())
                     final_log_probs=tf.reshape(tf.transpose(gate_log_prob)+all_log_probs, [total_num_gates,-1]) #[num_gates, batch_size/4]
                     self.final_log_probs=final_log_probs
                     layout = 'question_first' if efficient else 'choice_first'

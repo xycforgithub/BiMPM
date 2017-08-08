@@ -273,7 +273,8 @@ def main(_):
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
                                               max_choice_length=FLAGS.max_choice_length, tolower=tolower,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient, 
+                                              random_seed=FLAGS.random_seed)
                                     
     devDataStream = TriMatchDataStream(dev_path, word_vocab=word_vocab, char_vocab=char_vocab,
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -282,7 +283,8 @@ def main(_):
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
                                               max_choice_length=FLAGS.max_choice_length, tolower=tolower,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient, 
+                                              random_seed=FLAGS.random_seed)
 
     testDataStream = TriMatchDataStream(test_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -291,7 +293,8 @@ def main(_):
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length,max_hyp_length=FLAGS.max_hyp_length, 
                                               max_choice_length=FLAGS.max_choice_length, tolower=tolower,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat, efficient=FLAGS.efficient, 
+                                              random_seed=FLAGS.random_seed)
 
     print('Number of instances in trainDataStream: {}'.format(trainDataStream.get_num_instance()))
     print('Number of instances in devDataStream: {}'.format(devDataStream.get_num_instance()))
@@ -306,6 +309,9 @@ def main(_):
     best_accuracy = 0.0
     init_scale = 0.01
     with tf.Graph().as_default():
+        if FLAGS.random_seed is not None:
+            tf.set_random_seed(FLAGS.random_seed)
+            print('tf random seed set')
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
 #         with tf.name_scope("Train"):
         with tf.variable_scope("Model", reuse=None, initializer=initializer):
@@ -493,9 +499,9 @@ def main(_):
                             print('this shape=',val.shape)
                     print('this shape=',val.shape)
                     # print(val)
-                print('question repre:',return_list[10][:,:,0])
-                print('choice repre:',return_list[12][:,:,0])
-                print('qc repre:',return_list[14][:,:,0])
+                # print('question repre:',return_list[10][:,:,0])
+                # print('choice repre:',return_list[12][:,:,0])
+                # print('qc repre:',return_list[14][:,:,0])
 
                 input('check')
             else:
@@ -527,15 +533,18 @@ def main(_):
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
                 print("Current accuracy on dev set is %.2f" % accuracy)
-                # saver.save(sess, best_path+'_iter{}'.format(step))
-                print('saving the current model.')
+                if not FLAGS.not_save_model:
+                    saver.save(sess, best_path+'_iter{}'.format(step))
+                    print('saving the current model.')
                 if accuracy>=best_accuracy:
                     best_accuracy = accuracy
-                    # saver.save(sess, best_path)
+                    if not FLAGS.not_save_model:
+                        saver.save(sess, best_path)
                     print('saving the current model as best model.')
-                # accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                #     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
-                # print("Current accuracy on test set is %.2f" % accuracy)
+                if not FLAGS.not_save_model:
+                    accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
+                        use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
+                    print("Current accuracy on test set is %.2f" % accuracy)
                 
     print("Best accuracy on dev set is %.2f" % best_accuracy)
     # decoding
@@ -652,7 +661,8 @@ if __name__ == '__main__':
     parser.add_argument('--reasonet_terminate_mode',default='original', help='reasonet terminate mode: original to use terminate probs, softmax to use terminate logits')
     parser.add_argument('--reasonet_keep_first', default=False, help='Also use step 0 as a gate in reasonet', action='store_true')
     parser.add_argument('--reasonet_logit_combine',default='sum', help='Use sum/max pooling to combine terminate logit of different answers.')
-
+    parser.add_argument('--not_save_model',default=False,help='whether to save models (only use for testing).',action='store_true')
+    parser.add_argument('--random_seed',type=int,default=None, help='random seed for graph init and data shuffle.')
 #     print("CUDA_VISIBLE_DEVICES " + os.environ['CUDA_VISIBLE_DEVICES'])
     sys.stdout.flush()
     FLAGS, unparsed = parser.parse_known_args()

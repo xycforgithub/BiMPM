@@ -125,7 +125,7 @@ class ReasoNetModule:
                 max_state = tf.reduce_max(reshaped_state, axis=2) # [num_steps , num_matcher, batch_size/4, state_dim]
                 all_logits =tf.matmul(tf.reshape(max_state,[-1,self.state_dim]), self.W_gate)+self.b_gate# [num_steps , num_matcher, batch_size/4]
                 all_logits = tf.reshape(all_logits, [self.total_calculated_steps, num_matcher, -1])
-            all_log_probs = tf.nn.log_softmax(all_logits, dim=0),[self.total_calculated_steps * num_matcher,-1]  # [num_steps * num_matchers, batch_size/4]
+            all_log_probs = tf.nn.log_softmax(all_logits, dim=0) # [num_steps, num_matchers, batch_size/4]
 
 
                 # all_logits=[]
