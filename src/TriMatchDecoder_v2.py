@@ -94,6 +94,7 @@ if __name__ == '__main__':
             reasonet_training=FLAGS.reasonet_training
         rl_matches=FLAGS.rl_matches
         concat_context=FLAGS.concat_context
+        print('concat_context=',concat_context)
         tied_aggre=False
         if hasattr(FLAGS,'tied_aggre'):
             tied_aggre=FLAGS.tied_aggre
@@ -103,14 +104,14 @@ if __name__ == '__main__':
         rl_training_method=FLAGS.rl_training_method
         efficient=FLAGS.efficient
         reasonet_steps=5
-        reasonet_hiddne_dim=128
+        reasonet_hidden_dim=128
         reasonet_lambda=10
         reasonet_terminate_mode='original'
         reasonet_keep_first=True
         reasonet_logit_combine='sum'       
         if reasonet_training:
             reasonet_steps=FLAGS.reasonet_steps
-            reasonet_hiddne_dim=FLAGS.reasonet_hiddne_dim
+            reasonet_hidden_dim=FLAGS.reasonet_hidden_dim
             reasonet_lambda=FLAGS.reasonet_lambda
             reasonet_terminate_mode=FLAGS.reasonet_terminate_mode
             reasonet_keep_first=FLAGS.reasonet_keep_first
@@ -143,7 +144,8 @@ if __name__ == '__main__':
                                               max_char_per_word=FLAGS.max_char_per_word, 
                                               max_sent_length=FLAGS.max_sent_length, max_hyp_length=max_hyp_length, 
                                               max_choice_length=max_choice_length,tolower=FLAGS.use_lower_letter,
-                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat)
+                                              gen_concat_mat=gen_concat_mat, gen_split_mat=gen_split_mat,
+                                              efficient=efficient)
     print('Number of instances in testDataStream: {}'.format(testDataStream.get_num_instance()))
     print('Number of batches in testDataStream: {}'.format(testDataStream.get_num_batch()))
 

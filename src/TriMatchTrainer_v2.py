@@ -67,6 +67,10 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
     dataStream.reset()
     correct_tag_list=[]
     total_count_list=[]
+    if output_gate_probs:
+        out_gate_path=outpath.replace('.probs','.gateprobs')
+        print('gate_prob_path:',out_gate_path)
+        out_gate_file=open(out_gate_path,'w')
     for batch_index in range(dataStream.get_num_batch()):
         if batch_index % 10 ==0:
             print(' %d/%d ' % (batch_index,dataStream.get_num_batch()), end="")
@@ -164,11 +168,10 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                     for i in range(len(label_batch)):
                         outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
         if output_gate_probs:
-            gate_probs=np.exp(eval_res[2])
-            out_gate_path=outpath.replace('.probs','.gateprobs')
-            with open(out_gate_path,'w') as out_gate_file:
-                for i in range(len(label_batch)//num_options):
-                    out_gate_file.write(output_probs_options(gate_probs[i])+'\n')
+            gate_probs=np.transpose(np.exp(eval_res[2]))
+            
+            for i in range(len(label_batch)//num_options):
+                out_gate_file.write(output_probs_options(gate_probs[i])+'\n')
 
 
     if outpath is not None: outfile.close()
