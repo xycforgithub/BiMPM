@@ -407,6 +407,7 @@ class TriMatchModelGraph(object):
                 else:
                     gold_matrix = tf.reshape(self.truth, [-1, num_options])# [batch_size, num_options]
                 gold_matrix = tf.cast(gold_matrix, tf.float32)
+                self.gold_matrix=gold_matrix
                 correct = tf.equal(tf.argmax(self.prob, 1), tf.argmax(gold_matrix, 1))
             else:
                 gold_matrix = tf.one_hot(self.truth, num_classes, dtype=tf.float32)
@@ -453,7 +454,7 @@ class TriMatchModelGraph(object):
             if use_options:
                 if efficient:
                     logits = tf.transpose(tf.reshape(logits, [num_options, -1]))
-                    gold_matrix = tf.transpose(tf.reshape(self.truth, [-1, num_options]))
+                    gold_matrix = tf.transpose(tf.reshape(self.truth, [num_options,-1]))
                 else:
                     logits = tf.reshape(logits, [-1, num_options])
                     gold_matrix = tf.reshape(self.truth, [-1, num_options])
@@ -470,6 +471,7 @@ class TriMatchModelGraph(object):
                 # correct = tf.nn.in_top_k(logits, self.truth, 1)
                 # self.eval_correct = tf.reduce_sum(tf.cast(correct, tf.int32))
                 correct = tf.equal(tf.argmax(logits, 1), tf.argmax(gold_matrix, 1))
+                self.gold_matrix=gold_matrix
                 self.correct = correct
 
             else:

@@ -59,7 +59,7 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False,tolower=False):
 
 def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',
              char_vocab=None, POS_vocab=None, NER_vocab=None, use_options=False, cond_training=False,
-             output_gate_probs=False):
+             output_gate_probs=False, efficient=False):
     if outpath is not None: outfile = open(outpath, 'wt',encoding='utf-8')
     # print('evaluate_v2')
     total_tags = 0.0
@@ -145,8 +145,12 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
             if use_options:
                 if mode=='prediction':
                     predictions = eval_res[1]
-                    for i in range(len(label_batch)//num_options):
-                        gt=str(np.argmax(label_id_batch[i*4:(i+1)*4]))
+                    num_question=len(label_batch)//num_options
+                    for i in range(num_question):
+                        if efficient:
+                            gt=str(np.argmax(label_id_batch[i::num_question]))
+                        else:
+                            gt=str(np.argmax(label_id_batch[i*4:(i+1)*4]))
                         outline=gt+"\t"+predictions[i]
                         outfile.write(outline)
                 else:
@@ -437,15 +441,16 @@ def main(_):
                 print(sent1_length_batch)
                 print(sent2_length_batch)
                 print(sent3_length_batch)
+                print(np.reshape(label_id_batch,[num_options,-1]))
                 # print(word_idx_1_batch)
                 # print(word_idx_2_batch)
                 # print(word_idx_3_batch)
                 # print(sent1_batch)
                 # print(sent2_batch)
                 # print(sent3_batch)
-                print(concat_mat_batch)
-                print(split_mat_batch_q)
-                print(split_mat_batch_c)
+                # print(concat_mat_batch)
+                # print(split_mat_batch_q)
+                # print(split_mat_batch_c)
                 input('check')
             feed_dict = {
                          train_graph.get_truth(): label_id_batch, 
@@ -488,14 +493,14 @@ def main(_):
                     # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
                 return_list = sess.run([train_graph.get_train_op(), train_graph.loss_summary, train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     train_graph.all_probs, train_graph.correct, train_graph.gate_prob, train_graph.gate_log_prob,
-                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.rn_log_probs, train_graph.final_log_probs]+train_graph.matching_vectors, feed_dict=feed_dict)
+                    train_graph.weighted_log_probs, train_graph.log_coeffs, train_graph.gold_matrix, train_graph.final_log_probs]+train_graph.matching_vectors, feed_dict=feed_dict)
 
                 print(len(return_list))
                 with open('../model_data/res.pkg','wb') as fout:
                     pickle.dump(return_list, fout)
                 input('written')
                 _, loss_summary,loss_value, pred, prob, all_probs, correct, gate_prob, gate_log_prob, weighted_log_probs,\
-                    log_coeffs=return_list[0:11]
+                    log_coeffs,gold_matrix=return_list[0:12]
                 print('loss=',loss_value) 
                 print('pred=',pred)
                 print('prob=',prob)
@@ -505,6 +510,7 @@ def main(_):
                 print('gate_log_prob',gate_log_prob)
                 print('weighted log probs=',weighted_log_probs)
                 print('log_coeffs=',log_coeffs)
+                print('gold_matrix=',gold_matrix)
                 for val in return_list[10:]:
                     if isinstance(val,list):
                         print('list len ',len(val))
@@ -544,7 +550,7 @@ def main(_):
                 else:
                     outpath=None
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                    use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
+                    use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training,efficient=FLAGS.efficient)
                 print("Current accuracy on dev set is %.2f" % accuracy)
                 if not FLAGS.not_save_model:
                     saver.save(sess, best_path+'_iter{}'.format(step))
@@ -556,7 +562,7 @@ def main(_):
                     print('saving the current model as best model.')
                 if not FLAGS.not_save_model:
                     accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
-                        use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training)
+                        use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training,efficient=FLAGS.efficient)
                     print("Current accuracy on test set is %.2f" % accuracy)
                 
     print("Best accuracy on dev set is %.2f" % best_accuracy)
@@ -604,7 +610,8 @@ def main(_):
         saver.restore(sess, best_path)
 
         accuracy = evaluate(testDataStream, valid_graph, sess,
-            char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, use_options=FLAGS.use_options, cond_training=FLAGS.cond_training)
+            char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, use_options=FLAGS.use_options, 
+            cond_training=FLAGS.cond_training,efficient=FLAGS.efficient)
         print("Accuracy for test set is %.2f" % accuracy)
 
 if __name__ == '__main__':
