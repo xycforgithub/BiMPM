@@ -58,7 +58,8 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False,tolower=False):
     return (all_words, all_chars, all_labels, all_POSs, all_NERs)
 
 def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',
-             char_vocab=None, POS_vocab=None, NER_vocab=None, use_options=False, cond_training=False):
+             char_vocab=None, POS_vocab=None, NER_vocab=None, use_options=False, cond_training=False,
+             output_gate_probs=False):
     if outpath is not None: outfile = open(outpath, 'wt',encoding='utf-8')
     # print('evaluate_v2')
     total_tags = 0.0
@@ -123,6 +124,8 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                 to_eval.append(valid_graph.get_predictions())
             else:
                 to_eval.append(valid_graph.get_prob())
+        if output_gate_probs:
+            to_eval.append(valid_graph.final_log_probs)
         eval_res=sess.run(to_eval,feed_dict=feed_dict)
 
         correct_tag_list.append(int(eval_res[0]))
@@ -160,6 +163,13 @@ def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode
                     probs = eval_res[1]
                     for i in range(len(label_batch)):
                         outfile.write(label_batch[i] + "\t" + output_probs(probs[i], label_vocab) + "\n")
+        if output_gate_probs:
+            gate_probs=np.exp(eval_res[2])
+            out_gate_path=outpath.replace('.probs','.gateprobs')
+            with open(out_gate_path,'w') as out_gate_file:
+                for i in range(len(label_batch)//num_options):
+                    out_gate_file.write(output_probs_options(gate_probs[i])+'\n')
+
 
     if outpath is not None: outfile.close()
     print('')

@@ -20,6 +20,7 @@ if __name__ == '__main__':
     parser.add_argument('--word_vec_path', type=str, required=True, help='word embedding file for the input file.')
     parser.add_argument('--mode', type=str, default="prediction", help='prediction or probs')
     parser.add_argument('--batch_size', default=None, help='test batch size')
+    parser.add_argument('--output_gate_probs',default=False, help='output RL gates probs.', action='store_true')
 
 
 
@@ -209,7 +210,7 @@ if __name__ == '__main__':
 
         accuracy = TriMatchTrainer.evaluate(testDataStream, valid_graph, sess, outpath=out_path, label_vocab=label_vocab,mode=args.mode,
                                                  char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, use_options=use_options, 
-                                                 cond_training=cond_training)
+                                                 cond_training=cond_training,output_gate_probs=args.output_gate_probs)
         print("Accuracy for test set is %.2f" % accuracy)
 
 
