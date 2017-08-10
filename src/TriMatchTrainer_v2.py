@@ -19,6 +19,7 @@ FLAGS = None
 num_options=4
 # tf.logging.set_verbosity(tf.logging.ERROR) # DEBUG, INFO, WARN, ERROR, and FATAL
 def collect_vocabs(train_path, with_POS=False, with_NER=False,tolower=False):
+    # Collect all vocabulary
     all_labels = set()
     all_words = set()
     all_POSs = None
@@ -60,6 +61,9 @@ def collect_vocabs(train_path, with_POS=False, with_NER=False,tolower=False):
 def evaluate(dataStream, valid_graph, sess, outpath=None, label_vocab=None, mode='prediction',
              char_vocab=None, POS_vocab=None, NER_vocab=None, use_options=False, cond_training=False,
              output_gate_probs=False, efficient=False):
+    '''
+    Evaluate all data in dataStream.
+    '''
     if outpath is not None: outfile = open(outpath, 'wt',encoding='utf-8')
     # print('evaluate_v2')
     total_tags = 0.0
@@ -200,6 +204,8 @@ def main(_):
     print('Configurations:')
     print(FLAGS)
 
+
+    # Path and arguments configuraiton
     train_path = FLAGS.train_path
     dev_path = FLAGS.dev_path
     test_path = FLAGS.test_path
@@ -220,7 +226,8 @@ def main(_):
     path_prefix = log_dir + "/TriMatch.{}".format(FLAGS.suffix)
 
     namespace_utils.save_namespace(FLAGS, path_prefix + ".config.json")
-
+    # namespace_utils.save_namespace(FLAGS, '../model_data/' + ".config.json")
+    # input('check')
     # build vocabs
     word_vocab = Vocab(word_vec_path, fileformat='txt3',tolower=tolower)
     best_path = path_prefix + '.best.model'
@@ -236,6 +243,7 @@ def main(_):
 
     print('best path:', best_path)
     if os.path.exists(best_path+'.data-00000-of-00001') and not(FLAGS.create_new_model):
+        # Restore previously stored model
         print('Using pretrained model')
         has_pre_trained_model = True
         label_vocab = Vocab(label_path, fileformat='txt2',tolower=tolower)
@@ -281,7 +289,7 @@ def main(_):
 
     print('Build TriMatchDataStream ... ')
 
-
+    #Build datastream
 
     trainDataStream = TriMatchDataStream(train_path, word_vocab=word_vocab, char_vocab=char_vocab, 
                                               POS_vocab=POS_vocab, NER_vocab=NER_vocab, label_vocab=label_vocab, 
@@ -331,6 +339,7 @@ def main(_):
             print('tf random seed set')
         initializer = tf.random_uniform_initializer(-init_scale, init_scale)
 #         with tf.name_scope("Train"):
+        # Build model
         with tf.variable_scope("Model", reuse=None, initializer=initializer):
             train_graph = TriMatchModelGraph(num_classes, word_vocab=word_vocab, char_vocab=char_vocab,POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                  dropout_rate=FLAGS.dropout_rate, learning_rate=FLAGS.learning_rate, optimize_type=FLAGS.optimize_type,
@@ -360,6 +369,7 @@ def main(_):
             valid_graph=train_graph
             print('cond training')
         else:
+            # in this case, build a another validation model for testing
             if FLAGS.verbose:
                 valid_graph=train_graph
             else:
@@ -489,6 +499,7 @@ def main(_):
                 feed_dict[train_graph.split_idx_mat_c] = split_mat_batch_c
 
             if FLAGS.verbose:
+                # Debug code
                 # return_list = sess.run([train_graph.get_train_op(), train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
                     # train_graph.all_probs, train_graph.correct]+train_graph.matching_vectors, feed_dict=feed_dict)
                 return_list = sess.run([train_graph.get_train_op(), train_graph.loss_summary, train_graph.get_loss(), train_graph.get_predictions(),train_graph.get_prob(),
@@ -549,6 +560,7 @@ def main(_):
                     outpath=path_prefix+'.iter%d' % (step) +'.probs'
                 else:
                     outpath=None
+                # Test on validation data
                 accuracy = evaluate(devDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                     use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training,efficient=FLAGS.efficient)
                 print("Current accuracy on dev set is %.2f" % accuracy)
@@ -561,6 +573,7 @@ def main(_):
                         saver.save(sess, best_path)
                     print('saving the current model as best model.')
                 if not FLAGS.not_save_model:
+                    # Test on test data (just for reference)
                     accuracy = evaluate(testDataStream, valid_graph, sess,char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, 
                         use_options=FLAGS.use_options,outpath=outpath, mode='prob', cond_training=FLAGS.cond_training,efficient=FLAGS.efficient)
                     print("Current accuracy on test set is %.2f" % accuracy)

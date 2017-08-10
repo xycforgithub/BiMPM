@@ -36,11 +36,24 @@ class TriMatchModelGraph(object):
             concat_context: Concat question & choice and feed into context LSTM
             tied_aggre: aggregation layer weights are tied.
             training_method: contrastive reward or policy gradient or soft voting
+        Efficiency options:
+        cond_training: use a tensorflow boolean to control whether to dropout
+        efficient: the feed_dict will contain each passage only once, with the choice in the format of [num_gates*batch_size, dim]
 
         RL training method:
         soft_voting: Simple voting training without RL
         contrastive: Basic contrastive reward
         contrastive_imp: Use (r/b-1) instead of (r-b) as in ReasoNet.
+
+        Reasonet module options:
+        r_steps: reasonet reading steps
+        r_hidden_dim: When calculating distance, the two repre are linear mapped to this dimension.
+        lambda: multiplier for the terminate gate
+        terminate_mode: original for using 0-1 terminate gate, softmax for using a softmax over all possible steps
+        keep_first: feed reasonet step 0 (the initial state) into the prediction module
+        logit_combine: When deciding whether to stop reading on a question, use voting from all questions (sum) 
+                       or max activation of all questions(max_pooling) 
+        tied_match: Matching layer weights are tied.
 
         '''
         reasonet_calculated_steps=reasonet_steps+1 if reasonet_keep_first else reasonet_steps

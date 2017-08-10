@@ -10,12 +10,15 @@ VERY_POSITIVE_NUMBER = VERY_BIG_NUMBER
 VERY_NEGATIVE_NUMBER = -VERY_BIG_NUMBER
 
 def exp_mask(val,mask, name=None):
+    # Mask the spaces
     return tf.add(val, (1 - mask) * VERY_NEGATIVE_NUMBER, name=name or 'mask')
 class ReasoNetModule:
+    # Reasonet module
     def __init__(self, num_steps,num_options, state_dim, memory_dim, hidden_dim, lambda_multiplier, memory_max_len, scope=None,
                  terminate_mode='original', logit_combine='sum', keep_first=False):
-        # terminate_mode: original or softmax
-        # Logit combine: sum or max_pooling
+        # initialize the parameters
+        # terminate_mode: original or softmax for terminate gate
+        # Logit combine: sum or max_pooling for combining terminate gate inputs of different choices
         self.num_steps=num_steps
         self.num_options=num_options
         self.hidden_dim=hidden_dim

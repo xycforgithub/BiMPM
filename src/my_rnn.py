@@ -21,6 +21,7 @@ _state_size_with_prefix = rnn_cell_impl._state_size_with_prefix
 
 
 class SwitchableDropoutWrapper(DropoutWrapper):
+    # switchable dropoutwrapper, adapted from BiDAF
     def __init__(self, cell, is_train, input_keep_prob=1.0, output_keep_prob=1.0,
              seed=None):
         super(SwitchableDropoutWrapper, self).__init__(cell, input_keep_prob=input_keep_prob, output_keep_prob=output_keep_prob,
@@ -41,6 +42,7 @@ class SwitchableDropoutWrapper(DropoutWrapper):
 
 
 def concatenate_sents(sent1_repre, sent2_repre, indices):
+  # concatenate sentence representations of question and choice
   concat_repre=array_ops.concat([sent1_repre,sent2_repre],1)
   flat_repre=array_ops.gather_nd(concat_repre,indices)
   return flat_repre
@@ -49,8 +51,10 @@ def concatenate_sents(sent1_repre, sent2_repre, indices):
   # embed_dim=input_shape[2]
   # return array_ops.reshape(flat_repre,[batch_size,-1,embed_dim])
 def split_sents(sent_repre,idx_1, idx_2):
+  # split q+c sentence representations into question and choice
   return array_ops.gather_nd(sent_repre,idx_1),array_ops.gather_nd(sent_repre,idx_2)
 def extract_double_repre(sent_repre_fw, sent_repre_bw,sent1_length):
+  # Extract from q+c representation the first and last vector of question & choice
   input_shape=array_ops.shape(sent_repre_fw)
   batch_size=input_shape[0]
   batch_idx=math_ops.range(batch_size)
@@ -62,6 +66,7 @@ def extract_double_repre(sent_repre_fw, sent_repre_bw,sent1_length):
   bw_sent2_repre=array_ops.gather_nd(sent_repre_bw,sent2_idx)
   return (fw_sent1_repre,bw_sent1_repre,fw_sent2_repre,bw_sent2_repre)
 def extract_question_repre(sent_repre_fw,sent_repre_bw,sent1_length):
+  # Deprecated
   input_shape=array_ops.shape(sent_repre_fw)
   batch_size=input_shape[0]
   batch_idx=math_ops.range(batch_size)

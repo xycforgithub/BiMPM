@@ -4,16 +4,31 @@ import my_rnn
 # from tensorflow import DropoutWrapper
 # from matcher import Matcher
 
+# Matching utilities.
 
 eps = 1e-6
 
 def map_tensor(weight, tensor, vector_dim, target_shape):
+    ''' 
+    Linear map tensor with tensor.shape[-1]=d with weight of shape dxp to a answer tensor with answer.shape[-1]=p.
+    weight: weight vector
+    tensor: mapped tensor
+    vector_dim: the last dim
+    target shape: the original shape (the shape of tensor with last dimension changed to p).
+    '''
     reshaped_tensor=tf.reshape(tensor, [-1,vector_dim])
     mapped_reshaped=tf.matmul(reshaped_tensor,weight)
     return tf.reshape(mapped_reshaped, target_shape)
 def softmax_pred(all_states, w_0, b_0, w_1, b_1, is_training, dropout_rate, use_options=True, num_options=4,
                      cond_training=True, layout='choice_first', num_gates=1):
-    # Layout = choice_first or question_first
+    '''
+    add softmax prediction to all_states with weights w_0,b_0,w_1,b_1 (one hidden layer).
+    is_training: boolean indicator of whether it is training (used for dropout)
+    use_options: do 4-way softmax on choices instead of 2-way classification for each choice.
+    cond_training: if true, is_training is a Tensorflow tensor of type boolean; otherwise, is_training is a normal boolean.
+    layout = choice_first or question_first, whether all states are formatted as [batch_size*num_options, state_dim] or [num_options,batch_size, state_dim]
+    num_gates: the input is formatted as [num_gates*num_options*batch_size, state_dim]
+    '''
     logits = tf.matmul(all_states, w_0) + b_0
     logits = tf.tanh(logits)
     if cond_training:
@@ -45,6 +60,7 @@ def softmax_pred(all_states, w_0, b_0, w_1, b_1, is_training, dropout_rate, use_
 
 
 def apply_dropout(repre, is_training, dropout_rate):
+    '''helper function for dropout'''
     return tf.cond(is_training,lambda: tf.nn.dropout(repre, 1 - dropout_rate), lambda:repre)
 
 def cosine_distance(y1,y2):
@@ -826,7 +842,10 @@ def trilateral_match(in_question_repres, in_passage_repres, in_choice_repres,
                         with_aggregation_highway, with_full_match=True, with_maxpool_match=True, with_attentive_match=True,
                         with_max_attentive_match=True, match_to_passage=True, match_to_question=True, match_to_choice=True, with_no_match=False,
                         debug=False,matching_option=0):
-
+    '''
+    Matching for three contexts. 
+    First does context layer, and then matching layer.
+    '''
     print('trilateral match ',matching_option)
     qp_cosine_matrix = cal_relevancy_matrix(in_question_repres, in_passage_repres) # [batch_size, passage_len, question_len]
     qp_cosine_matrix = mask_relevancy_matrix(qp_cosine_matrix, question_mask, mask)

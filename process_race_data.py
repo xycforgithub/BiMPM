@@ -2,20 +2,20 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-mode='train'
+mode='train' # train, test or dev
 # n_ans='same'
-concat_mode='concat' # replace or concat
-shuffle=False
-shuffle_questions=True
+concat_mode='concat' # replace or concat; replace _ with answer, or concatenate question and answer.
+shuffle=False # Shuffle all question-choice pairs (not suitable for softmax prediction over 4 answers)
+shuffle_questions=True # Shuffle all questions while keep choice order (used for softmax prediction)
 choice_num=4
 verbose=False
-true_repeat=1
-middle_only=False
-high_only=False
-sort=False
-triMatch=True # set concat_mode=concat to use triMatch
-partData=True
-largePartData=False
+true_repeat=1# Repeat true choice for non-softmax prediction
+middle_only=False # generate RACE-M data only
+high_only=False# generate RACE-H data only
+sort=True # Sort all samples according to passage length (recommended)
+triMatch=True # used for TriMatch. Will generate 3 fields instead 2. Set concat_mode=concat to use triMatch.
+partData=True # Generate partial data for testing
+largePartData=False # generate long partial data for testing
 if triMatch:
 	assert concat_mode=='concat'
 # input_data=open(r'D:\users\t-yicxu\data\squad\\'+mode+'-v1.1.json',encoding='utf-8')

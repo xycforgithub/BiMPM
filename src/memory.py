@@ -7,6 +7,10 @@ import match_utils
 from matcher import Matcher
 
 class Memory(Matcher):
+    ''' 
+    Memory for Reasonet. Implemented as an extension to matcher, using question_repre as the memory representation
+
+    '''
     def __init__(self,memory_lengths, tiled_memory_mask, cond_training=True):
         super().__init__(-1,memory_lengths,None,cond_training=cond_training)
         self.tiled_memory_mask=tiled_memory_mask
@@ -20,6 +24,7 @@ class Memory(Matcher):
         return self.aggregation_dim
     def aggregate(self, aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False,
                   reuse=None):
+        # add aggregation LSTM. All activations of the LSTM is used as memory, different than usual matcher.
         self.aggregation_representation = []
         self.aggregation_dim = 0
 

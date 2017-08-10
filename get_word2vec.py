@@ -66,6 +66,12 @@ def fromText_format3(vec_path,voc=None):
 #         print('shape=',word_vecs[cur_index].shape)
 #         input('check')
     return word_vecs,word2id,id2word
+
+'''
+Generate vocabulary. You can put this in a ipython notebook to avoid loading the vocabulary every time.
+set train_path, dev_path and test_path respectively, and configure lines below to include data you need to include for generating vocabulary
+'''
+
 # train_path=r'D:\users\t-yicxu\data\snli_1.0\train.tsv'
 # dev_path=r'D:\users\t-yicxu\data\snli_1.0\dev.tsv'
 # test_path=r'D:\users\t-yicxu\data\snli_1.0\test.tsv'
@@ -84,6 +90,8 @@ vec_path=r'D:/users/t-yicxu/biglearn/glove.840B.300d.txt'
 train_path=r'D:\users\t-yicxu\data\squad\entail_test_10choice.tsv'
 
 print('start')
+
+# --------Add the data you want to include here
 all_words=collect_vocabs(train_path)
 # Uncomment this to add more words in dev and test
 # all_words|= collect_vocabs(train_path_2)

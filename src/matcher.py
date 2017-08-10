@@ -7,6 +7,9 @@ import match_utils
 
 
 class Matcher:
+    '''
+    Class for matching templates.
+    '''
     def __init__(self,matching_id, question_lengths, choice_lengths, qc_lengths=None, cond_training=True):
         self.question_repre=[]
         self.choice_repre=[]
@@ -15,14 +18,16 @@ class Matcher:
         self.matching_id=matching_id
         self.question_lengths=question_lengths
         self.choice_lengths=choice_lengths
-        self.qc_lengths=qc_lengths
+        self.qc_lengths=qc_lengths # q+c lengths
         self.cond_training=cond_training
         self.concated=False
     def transform_question_repre(self, weight, target_shape,target_dim):
+        # Linear map question representations to another dimension (used for memory)
         assert self.concated
         self.question_repre=match_utils.map_tensor(weight, self.question_repre, self.question_repre_dim, target_shape)
         self.question_repre_dim=target_dim
     def concat(self,is_training,dropout_rate):
+        # concat matching represenations in question_repre and choice_repre, and apply dropout
         self.concated=True
         if self.question_repre_dim>0:
             self.question_repre=tf.concat(self.question_repre, 2, name='conat_question_{}'.format(self.matching_id))
@@ -55,6 +60,7 @@ class Matcher:
             self.choice_repre.append(choice_repre)
         self.choice_repre_dim+=choice_dim
     def add_highway_layer(self,highway_layer_num,tied_aggre=False, reuse_question=None, reuse_choice=None):
+        # Add highway layer on top of matching layer
         if tied_aggre:
             name='matching_highway'
         else:
@@ -66,6 +72,7 @@ class Matcher:
             with tf.variable_scope("{}_choice".format(name),reuse=reuse_choice):
                 self.choice_repre = multi_highway_layer(self.choice_repre, self.choice_repre_dim, highway_layer_num)
     def aggregate(self,aggregation_layer_num, aggregation_lstm_dim, is_training, dropout_rate, tied_aggre=False, reuse=None):
+        # Add aggregation LSTM
         self.aggregation_representation = []
         self.aggregation_dim = 0
 
@@ -140,7 +147,7 @@ class Matcher:
         self.aggregation_representation = tf.concat(self.aggregation_representation, 1) # [batch_size, self.aggregation_dim]
         return self.aggregation_dim
     def add_aggregation_highway(self,highway_layer_num, tied_aggre=False, reuse=None):
-            # ======Highway layer======
+        # Add aggregation highway layer (after aggregation LSTM)
         # if tied_aggre:
         name='aggre_highway'
         # else:
@@ -152,6 +159,7 @@ class Matcher:
             self.aggregation_representation = multi_highway_layer(self.aggregation_representation, self.aggregation_dim, highway_layer_num)
             self.aggregation_representation = tf.reshape(self.aggregation_representation, [batch_size, self.aggregation_dim])
     def add_softmax_pred(self,w_0,b_0,w_1,b_1, is_training, dropout_rate, use_options=True, num_options=4, layout='choice_first'):
+        # Add softmax prediction after aggregation highway
         # Layout = choice_first or question_first
         logits = tf.matmul(self.aggregation_representation, w_0) + b_0
         logits = tf.tanh(logits)

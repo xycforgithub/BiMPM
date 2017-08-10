@@ -261,6 +261,17 @@ class TriMatchDataStream(SentenceMatchDataStream):
     def __init__(self, inpath, word_vocab=None, char_vocab=None, POS_vocab=None, NER_vocab=None, label_vocab=None, batch_size=60, 
                  isShuffle=False, isLoop=False, isSort=True, max_char_per_word=10, max_sent_length=200,max_hyp_length=100, max_choice_length=None,
                  tolower=False, gen_concat_mat=False, gen_split_mat=False, efficient=False, random_seed=None):
+        '''
+        Datastream for question, passage and choice.
+        isShuffle: whether to shuffle ordering of all batches
+        isLoop: whether to loop again when stream ends
+        isSort: whether to sort all samples according to length (speeds up computation)
+        tolower: use lower lettered vocabulary
+        gen_concat_mat: generate a concatenate matrix for concat represenation of question and choice
+        gen_split_mat: generate a split matrix for splitting q+c representation
+        efficient: Generate representation of passage only once for each passage
+        random_seed: seed for shuffling batches
+        '''
         if random_seed is not None:
             np.random.seed(random_seed)
         if max_choice_length is None:

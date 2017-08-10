@@ -9,6 +9,10 @@ import TriMatchTrainer_v2 as TriMatchTrainer
 from TriMatchModelGraph_v2 import TriMatchModelGraph
 import sys
 
+'''
+Script for testing.
+'''
+
 tf.logging.set_verbosity(tf.logging.ERROR) # DEBUG, INFO, WARN, ERROR, and FATAL
 num_options=4
 
@@ -212,7 +216,7 @@ if __name__ == '__main__':
 
         accuracy = TriMatchTrainer.evaluate(testDataStream, valid_graph, sess, outpath=out_path, label_vocab=label_vocab,mode=args.mode,
                                                  char_vocab=char_vocab, POS_vocab=POS_vocab, NER_vocab=NER_vocab, use_options=use_options, 
-                                                 cond_training=cond_training,output_gate_probs=args.output_gate_probs,,efficient=efficient)
+                                                 cond_training=cond_training,output_gate_probs=args.output_gate_probs,efficient=efficient)
         print("Accuracy for test set is %.2f" % accuracy)
 
 
